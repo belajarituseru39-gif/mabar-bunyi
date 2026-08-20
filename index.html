@@ -1,0 +1,1710 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <base target="_top">
+    <title>Konser Sains: Harmoni Gelombang Bunyi</title>
+    
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone@7.24.4/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&family=Righteous&display=swap" rel="stylesheet">
+
+    <style>
+        body, html {
+            margin: 0; padding: 0; height: 100%; width: 100%; overflow: hidden;
+            font-family: 'Nunito', sans-serif; background-color: #020617; /* Very dark slate */
+        }
+        h1, h2, h3, h4, h5, .font-concert { font-family: 'Righteous', cursive; letter-spacing: 1px; }
+        
+        /* Custom Scrollbar Blue/Cyan */
+        .custom-scrollbar::-webkit-scrollbar { width: 8px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: rgba(0, 0, 0, 0.3); border-radius: 10px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(6, 182, 212, 0.5); border-radius: 10px; } /* cyan-500 */
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(6, 182, 212, 0.8); }
+        
+        @keyframes float { 0%, 100% { transform: translateY(-3%); } 50% { transform: translateY(3%); } }
+        .animate-float { animation: float 4s infinite ease-in-out; }
+        
+        @keyframes fade-in { from { opacity: 0; transform: translateY(15px); } to { opacity: 1; transform: translateY(0); } }
+        .animate-fade-in { animation: fade-in 0.6s ease-out forwards; }
+
+        @keyframes pop-in { 0% { transform: scale(0.9); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+        .animate-pop-in { animation: pop-in 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
+        
+        @keyframes pulse-wave { 0% { box-shadow: 0 0 0 0 rgba(6, 182, 212, 0.7); } 70% { box-shadow: 0 0 0 15px rgba(6, 182, 212, 0); } 100% { box-shadow: 0 0 0 0 rgba(6, 182, 212, 0); } }
+        .animate-pulse-wave { animation: pulse-wave 2s infinite; }
+
+        .neon-glow { box-shadow: 0 0 15px rgba(59, 130, 246, 0.6), inset 0 0 10px rgba(59, 130, 246, 0.3); } /* Blue Glow */
+        .text-glow { text-shadow: 0 0 10px rgba(34, 211, 238, 0.8); } /* Cyan Text Glow */
+        .bg-glass { background: rgba(2, 6, 23, 0.85); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
+    </style>
+</head>
+<body>
+    <div id="root" class="h-full w-full"></div>
+
+    <script type="text/babel" data-presets="react">
+        const { useState, useEffect, useRef, useMemo } = React;
+
+        const GOOGLE_SCRIPT_URL = "MASUKKAN_URL_GOOGLE_SHEETS_DISINI"; 
+
+        // Sound Effects (Web Audio API)
+        let audioCtx = null;
+        const playSfx = (type) => {
+            try {
+                const AudioContext = window.AudioContext || window.webkitAudioContext;
+                if (!AudioContext) return; 
+                if (!audioCtx) audioCtx = new AudioContext();
+                if (audioCtx.state === 'suspended') audioCtx.resume();
+                
+                const oscillator = audioCtx.createOscillator();
+                const gainNode = audioCtx.createGain();
+                oscillator.connect(gainNode);
+                gainNode.connect(audioCtx.destination);
+                
+                if (type === 'correct') {
+                    oscillator.type = 'sine';
+                    oscillator.frequency.setValueAtTime(440, audioCtx.currentTime); 
+                    oscillator.frequency.exponentialRampToValueAtTime(880, audioCtx.currentTime + 0.1); 
+                    gainNode.gain.setValueAtTime(0.3, audioCtx.currentTime);
+                    gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
+                    oscillator.start(audioCtx.currentTime);
+                    oscillator.stop(audioCtx.currentTime + 0.3);
+                } else if (type === 'incorrect') {
+                    oscillator.type = 'square';
+                    oscillator.frequency.setValueAtTime(150, audioCtx.currentTime); 
+                    oscillator.frequency.exponentialRampToValueAtTime(80, audioCtx.currentTime + 0.2); 
+                    gainNode.gain.setValueAtTime(0.2, audioCtx.currentTime);
+                    gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.2);
+                    oscillator.start(audioCtx.currentTime);
+                    oscillator.stop(audioCtx.currentTime + 0.2);
+                } else if (type === 'click') {
+                    oscillator.type = 'triangle';
+                    oscillator.frequency.setValueAtTime(1200, audioCtx.currentTime); 
+                    oscillator.frequency.exponentialRampToValueAtTime(600, audioCtx.currentTime + 0.05); 
+                    gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
+                    gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.05);
+                    oscillator.start(audioCtx.currentTime);
+                    oscillator.stop(audioCtx.currentTime + 0.05);
+                }
+            } catch (err) { console.warn("Efek suara tidak didukung.", err); }
+        };
+
+        document.addEventListener('click', (e) => {
+            const isClickable = e.target.closest('button, select, [draggable="true"], .cursor-pointer, svg');
+            if (isClickable) playSfx('click');
+        });
+
+        const shuffleArray = (array) => {
+            const newArr = [...array];
+            for (let i = newArr.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [newArr[i], newArr[j]] = [newArr[j], newArr[i]];
+            }
+            return newArr;
+        };
+
+        const Icon = ({ path, className, onClick }) => (
+            <svg onClick={onClick} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>{path}</svg>
+        );
+
+        const Icons = {
+            Map: ({className}) => <Icon className={className} path={<><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"></polygon><line x1="8" y1="2" x2="8" y2="18"></line><line x1="16" y1="6" x2="16" y2="22"></line></>} />,
+            Star: ({className, onClick}) => <Icon onClick={onClick} className={className} path={<polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>} />,
+            Users: ({className}) => <Icon className={className} path={<><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></>} />,
+            User: ({className}) => <Icon className={className} path={<><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></>} />,
+            School: ({className}) => <Icon className={className} path={<><path d="M4 6h16"></path><path d="M4 6v14"></path><path d="M20 6v14"></path><path d="M12 22V10"></path><path d="M4 10h16"></path><path d="M4 14h16"></path><path d="M4 18h16"></path><path d="M12 2l-8 4h16z"></path></>} />,
+            ArrowRight: ({className}) => <Icon className={className} path={<><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></>} />,
+            Award: ({className}) => <Icon className={className} path={<><circle cx="12" cy="8" r="7"></circle><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"></polyline></>} />,
+            BookOpen: ({className}) => <Icon className={className} path={<><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path></>} />,
+            CheckCircle: ({className}) => <Icon className={className} path={<><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></>} />,
+            Menu: ({className}) => <Icon className={className} path={<><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></>} />,
+            X: ({className}) => <Icon className={className} path={<><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></>} />,
+            Maximize: ({className}) => <Icon className={className} path={<><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"></path></>} />,
+            Minimize: ({className}) => <Icon className={className} path={<><path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3"></path></>} />,
+            RefreshCcw: ({className}) => <Icon className={className} path={<><polyline points="1 23 1 17 7 17"></polyline><polyline points="23 1 23 7 17 7"></polyline><path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15"></path></>} />,
+            Home: ({className}) => <Icon className={className} path={<><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></>} />,
+            Lock: ({className}) => <Icon className={className} path={<><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></>} />,
+            Volume2: ({className}) => <Icon className={className} path={<><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.75"></path></>} />,
+            VolumeX: ({className}) => <Icon className={className} path={<><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><line x1="23" y1="9" x2="17" y2="15"></line><line x1="17" y1="9" x2="23" y2="15"></line></>} />,
+            Activity: ({className}) => <Icon className={className} path={<polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>} />,
+            Headphones: ({className}) => <Icon className={className} path={<><path d="M3 18v-6a9 9 0 0 1 18 0v6"></path><path d="M21 19a2 2 0 0 1-2 2h-1v-3a2 2 0 0 1 2-2h1zM3 19a2 2 0 0 0 2 2h1v-3a2 2 0 0 0-2-2H3z"></path></>} />
+        };
+
+        const LOGO_IMAGE_URL = "https://i.imgur.com/282ythu.jpeg"; 
+        const MAIN_BG_IMAGE = "https://i.imgur.com/trmAvPm.jpeg"; 
+        const BACKSONG_URL = "https://raw.githubusercontent.com/belajarituseru39-gif/lagubelajarkeren/main/Belajar%20Bersama%20(2).mp3"; 
+
+        const MAP_POSITIONS = [
+            { level: 1, top: '35%', left: '20%' }, // Backstage
+            { level: 2, top: '65%', left: '35%' }, // Check Sound
+            { level: 3, top: '25%', left: '55%' }, // Area Penonton
+            { level: 4, top: '75%', left: '70%' }, // Ruang Mixing
+            { level: 5, top: '40%', left: '85%' }, // Panggung Utama
+        ];
+
+        const LEVEL_DATA = {
+            1: {
+                title: "Backstage",
+                subtitle: "Misi: Persiapan Alat & Istilah",
+                stimulusTitle: "📋 BRIEFING KRU: Sifat Dasar Bunyi",
+                stimulusText: "Selamat datang, Kru Panggung! Untuk memastikan tata suara konser berjalan sempurna, kamu harus memahami istilah dasar gelombang bunyi.\n\nTugas pertamamu di Backstage ini adalah mencocokkan istilah sains tentang gelombang bunyi dengan definisi yang tepat sebelum alat musik dihidupkan!",
+                instruction: "Tarik Istilah Sains di sebelah kiri dan letakkan ke kotak Definisi yang tepat di sebelah kanan!",
+                items: [
+                    { id: 'getaran', text: '〰️ Getaran', matchId: 'f_getaran' },
+                    { id: 'medium', text: '🧱 Medium', matchId: 'f_medium' },
+                    { id: 'gema', text: '🏔️ Gema', matchId: 'f_gema' },
+                    { id: 'gaung', text: '🚪 Gaung (Kerdam)', matchId: 'f_gaung' },
+                    { id: 'frekuensi', text: '📈 Frekuensi', matchId: 'f_frekuensi' }
+                ],
+                targets: [
+                    { id: 'f_getaran', label: 'Gerakan bolak-balik suatu benda yang menjadi pusat sumber suara.' },
+                    { id: 'f_medium', label: 'Zat perantara (padat, cair, udara) yang membuat bunyi bisa merambat.' },
+                    { id: 'f_gema', label: 'Pantulan bunyi yang terdengar JELAS SETELAH bunyi asli selesai (biasanya di tebing/area luas).' },
+                    { id: 'f_gaung', label: 'Pantulan bunyi yang terdengar BERSAMAAN dengan bunyi asli sehingga suara jadi tidak jelas.' },
+                    { id: 'f_frekuensi', label: 'Banyaknya getaran per detik yang menentukan tinggi atau rendahnya suatu nada/suara.' }
+                ]
+            },
+            2: {
+                title: "Check Sound",
+                subtitle: "Misi: Uji Coba Akustik",
+                parts: [
+                    {
+                        questions: [
+                            {
+                                id: 'q1', type: 'single',
+                                stimulusTitle: "🎤 UJI SUARA 1: Komunikasi Sederhana",
+                                stimulusText: "Deni dan Budi sedang bermain 'telepon kaleng' yang dihubungkan dengan seutas benang kasur yang ditegangkan. Saat Deni berbisik di satu kaleng, Budi bisa mendengarnya dengan sangat jelas di kaleng yang lain, meskipun jarak mereka cukup jauh.",
+                                text: "Dari percobaan tersebut, membuktikan bahwa bunyi memiliki sifat dapat merambat melalui zat ....",
+                                options: [
+                                    "Gas (udara sekitar)",
+                                    "Cair (keringat tangan)",
+                                    "Padat (kaleng dan benang)",
+                                    "Hampa udara"
+                                ],
+                                correct: 2
+                            },
+                            {
+                                id: 'q2', type: 'single',
+                                stimulusTitle: "🎤 UJI SUARA 2: Ruang Hampa",
+                                stimulusText: "Dua orang astronot sedang memperbaiki satelit di luar angkasa. Karena helm pelindungnya rusak, sistem radio komunikasi mereka mati. Astronot pertama mencoba berteriak sangat keras ke arah astronot kedua yang berjarak 5 meter darinya.",
+                                text: "Apa yang akan terjadi dengan suara teriakan astronot tersebut?",
+                                options: [
+                                    "Suaranya terdengar pelan karena jaraknya jauh.",
+                                    "Suaranya tidak terdengar sama sekali karena di luar angkasa hampa udara.",
+                                    "Suaranya terdengar sangat keras karena tidak ada hambatan angin.",
+                                    "Suaranya akan bergema karena dipantulkan oleh badan satelit."
+                                ],
+                                correct: 1
+                            },
+                            {
+                                id: 'q3', type: 'single',
+                                stimulusTitle: "🎤 UJI SUARA 3: Instrumen Tiup",
+                                stimulusText: "Dalam sebuah orkestra, terdapat berbagai macam alat musik. Ada biola, gitar, seruling, dan drum. Andi mengamati pemain biola yang menggesek senarnya dan pemain seruling yang meniup alat musiknya.",
+                                text: "Bagaimana cara kerja seruling hingga bisa menghasilkan bunyi?",
+                                options: [
+                                    "Kayu seruling bergetar karena digoyangkan.",
+                                    "Udara di dalam tabung seruling bergetar karena ditiup.",
+                                    "Senar di dalam seruling dipetik oleh aliran udara.",
+                                    "Tangan pemain memukul lubang seruling."
+                                ],
+                                correct: 1
+                            },
+                            {
+                                id: 'q4', type: 'single',
+                                stimulusTitle: "🎤 UJI SUARA 4: Akustik Ruangan",
+                                stimulusText: "Saat kamu menonton film di bioskop (atau di studio musik tertutup), suara dari speaker terdengar sangat keras dan menggelegar. Namun, suara tersebut tetap jernih dan enak didengar, tidak bertabrakan atau memantul-mantul mengganggu telinga. Hal ini dikarenakan dinding ruangan dilapisi oleh karpet tebal dan busa.",
+                                text: "Apa fungsi utama dari karpet dan busa pada dinding ruangan tersebut?",
+                                options: [
+                                    "Menyerap bunyi agar tidak terjadi gaung (kerdam).",
+                                    "Memantulkan bunyi agar suara terdengar sampai ke belakang.",
+                                    "Menambah nilai estetika (keindahan) ruangan.",
+                                    "Mempercepat perambatan bunyi di udara."
+                                ],
+                                correct: 0
+                            },
+                            {
+                                id: 'q5', type: 'single',
+                                stimulusTitle: "🎤 UJI SUARA 5: Deteksi Alam",
+                                stimulusText: "Kelelawar adalah hewan yang aktif mencari makan di malam hari. Meskipun lingkungan sangat gelap dan penglihatan kelelawar tidak terlalu tajam, mereka bisa terbang cepat tanpa menabrak pohon atau dinding gua. Mereka memancarkan suara ultrasonik dari mulutnya.",
+                                text: "Kemampuan kelelawar menggunakan pantulan bunyi (gema) untuk mendeteksi letak benda atau mangsa disebut ....",
+                                options: [
+                                    "Adaptasi",
+                                    "Kamuflase",
+                                    "Ekolokasi",
+                                    "Resonansi"
+                                ],
+                                correct: 2
+                            }
+                        ]
+                    }
+                ]
+            },
+            3: {
+                title: "Area Penonton",
+                subtitle: "Misi: Evaluasi Gelombang",
+                questions: [
+                    {
+                        id: 'q1', type: 'single',
+                        stimulusTitle: "🎫 ZONA A: Gendang Bergetar",
+                        stimulusText: "Aris sedang menonton pertunjukan orkes musik tradisional di balai desa. Ia mengamati seorang pemain gendang yang memukul permukaan kulit gendang dengan telapak tangannya secara ritmis. Aris memperhatikan dengan saksama bahwa setiap kali kulit gendang dipukul, butiran debu yang ada di atas permukaan kulit gendang tersebut meloncat-loncat kecil mengikuti irama pukulan. Namun, saat tangan pemain gendang menahan permukaan kulit agar tidak bergerak lagi, suara gendang tiba-tiba menghilang sepenuhnya meskipun pertunjukan masih berlangsung. Kejadian ini memberikan pemahaman dasar bagi Aris mengenai proses terbentuknya suara pada benda.",
+                        text: "Fenomena meloncatnya butiran debu pada saat kulit gendang dipukul menunjukkan bahwa bunyi dihasilkan oleh benda yang ....",
+                        options: [
+                            "bergetar",
+                            "berpindah",
+                            "berwarna",
+                            "mengeras"
+                        ],
+                        correct: 0
+                    },
+                    {
+                        id: 'q2', type: 'single',
+                        stimulusTitle: "🎫 ZONA B: Eksperimen Ruang Hampa",
+                        stimulusText: "Dalam sebuah eksperimen di laboratorium sains, seorang guru meletakkan sebuah bel listrik yang sedang menyala di dalam sebuah sungkup kaca yang rapat. Awalnya, suara bel terdengar sangat jelas oleh seluruh siswa di kelas. Kemudian, guru tersebut mulai menyalakan mesin pompa vakum untuk mengeluarkan seluruh udara dari dalam sungkup kaca secara perlahan-lahan. Seiring dengan berkurangnya udara di dalam sungkup, suara bel yang tadinya nyaring berangsur-angsur melemah dan akhirnya tidak terdengar sama sekali, meskipun pemukul bel terlihat masih terus bergerak memukul loncengnya.",
+                        text: "Berdasarkan eksperimen tersebut, alasan suara bel tidak lagi terdengar saat udara di dalam sungkup habis adalah ....",
+                        options: [
+                            "gelombang bunyi terhalang oleh tebalnya dinding kaca sungkup",
+                            "bunyi memerlukan medium atau perantara untuk merambat",
+                            "energi listrik pada bel hilang karena ruang hampa udara",
+                            "pemukul bel bekerja lebih lambat di dalam ruang hampa"
+                        ],
+                        correct: 1
+                    },
+                    {
+                        id: 'q3', type: 'single',
+                        stimulusTitle: "🎫 ZONA C: Sonar Laut",
+                        stimulusText: "Pak Budi adalah seorang nelayan modern yang menggunakan teknologi sonar untuk membantu pekerjaannya di tengah laut. Suatu hari, Pak Budi ingin mengetahui kedalaman laut di posisi kapalnya berada untuk memastikan keamanan saat akan menurunkan jaring yang sangat panjang. Alat sonar pada kapal memancarkan gelombang bunyi ke dasar laut. Gelombang tersebut kemudian mengenai dasar laut dan terpantul kembali hingga diterima oleh sensor di kapal dalam waktu tertentu. Dengan prinsip pemantulan ini, alat sonar secara otomatis menghitung jarak berdasarkan kecepatan rambat bunyi di dalam air laut.",
+                        text: "Penerapan konsep gelombang bunyi yang digunakan oleh Pak Budi untuk mengetahui posisi kumpulan ikan atau kedalaman laut adalah ....",
+                        options: [
+                            "pembiasan bunyi",
+                            "penyerapan bunyi",
+                            "pemantulan bunyi",
+                            "peredaman bunyi"
+                        ],
+                        correct: 2
+                    },
+                    {
+                        id: 'q4', type: 'multiple',
+                        stimulusTitle: "🎫 ZONA D: Nada Alat Musik",
+                        stimulusText: "Dua orang siswa, Rina dan Dio, melakukan investigasi terhadap faktor-faktor yang memengaruhi nada pada alat musik petik. Mereka menggunakan sebuah gitar akustik sebagai objek penelitian. Pada tahap pertama, mereka memetik senar nomor 1 (paling tipis) dalam keadaan kencang, kemudian mereka mengendurkan putaran senar tersebut dan memetiknya kembali. Pada tahap kedua, mereka membandingkan suara dari senar nomor 1 yang tipis dengan senar nomor 6 yang paling tebal, di mana kedua senar tersebut ditarik dengan tingkat ketegangan yang sama. Mereka menemukan bahwa suara yang dihasilkan memiliki ketinggian nada yang sangat berbeda satu sama lain bergantung pada perlakuan yang diberikan.",
+                        text: "Berdasarkan hasil investigasi Rina dan Dio, pernyataan-pernyataan yang benar mengenai frekuensi dan nada bunyi adalah .... (Pilih lebih dari satu)",
+                        options: [
+                            "Semakin kencang senar ditarik, maka getaran semakin cepat dan nada dihasilkan semakin tinggi.",
+                            "Senar yang lebih tebal akan menghasilkan getaran yang lebih lambat sehingga nadanya lebih rendah.",
+                            "Ketebalan senar tidak memengaruhi nada selama panjang senar yang dipetik tetap sama.",
+                            "Mengendurkan senar gitar akan menyebabkan frekuensi getaran meningkat sehingga nada menjadi nyaring."
+                        ],
+                        correct: [0, 1]
+                    },
+                    {
+                        id: 'q5', type: 'multiple',
+                        stimulusTitle: "🎫 ZONA E: Meredam Kebisingan",
+                        stimulusText: "Sekolah Dasar Cerdas Bangsa berada tepat di pinggir jalan raya yang sangat ramai dengan lalu lintas kendaraan berat. Suara bising dari klakson dan mesin kendaraan seringkali masuk ke dalam ruang kelas dan mengganggu konsentrasi siswa saat belajar. Pihak sekolah memutuskan untuk melakukan renovasi pada ruang kelas agar lebih tenang. Mereka memiliki daftar material yang tersedia: (1) Papan kayu jati yang keras, (2) Karpet busa yang tebal dan berpori, (3) Lembaran seng, (4) Kain beludru yang berat dan berserat. Tim renovasi harus memilih material yang paling tepat untuk diletakkan pada permukaan dinding agar suara bising dari luar tidak memantul di dalam ruangan dan dapat dikurangi kekuatannya.",
+                        text: "Untuk mengatasi permasalahan kebisingan tersebut, kombinasi material yang paling efektif untuk dipasang pada dinding kelas karena sifatnya yang menyerap bunyi adalah .... (Pilih lebih dari satu)",
+                        options: [
+                            "Papan kayu jati dan lembaran seng karena permukaannya yang sangat rapat.",
+                            "Karpet busa tebal karena memiliki rongga-rongga udara yang dapat memerangkap getaran bunyi.",
+                            "Kain beludru karena permukaannya yang lunak dan berserat mampu menyerap energi bunyi.",
+                            "Lembaran seng karena sifat logamnya dapat memantulkan kembali suara bising ke arah jalan raya."
+                        ],
+                        correct: [1, 2]
+                    }
+                ]
+            },
+            4: {
+                title: "Ruang Mixing",
+                subtitle: "Misi: Diagnosis Sinyal Audio",
+                stimulusTitle: "🎛️ MEJA MIXING: Evaluasi Laporan Suara",
+                stimulusText: "Gawat! Asisten Kru Audio membuat 5 laporan pengamatan tentang bunyi yang mengandung KESALAHAN KONSEP sains.\n\nTugas Evaluasimu:\n1. Diagnosis: Temukan apa yang salah pada kalimat laporan tersebut.\n2. Resep Perbaikan: Pilih perbaikan fakta sains yang paling tepat!",
+                cases: [
+                    {
+                        id: 'c1', text: "LAPORAN 1: 'Saat kembang api meledak, aku melihat cahayanya lebih dulu, lalu baru terdengar suaranya. Ini membuktikan bahwa suara ledakan terjadi beberapa detik setelah kilatan cahaya.'",
+                        evalCorrect: 2, createCorrect: 1,
+                        evalOptions: ["Salah, cahaya dan suara ledakan tidak berhubungan sama sekali.", "Benar, karena cahaya adalah penyebab dari ledakan suara.", "Salah, ledakan suara dan kilatan cahaya terjadi BERSAMAAN pada saat yang sama."],
+                        createOptions: ["Perbaikan: Suara ledakan ditahan oleh asap, sehingga terlambat.", "Perbaikan: Kilat dan ledakan terjadi bersamaan, namun gelombang CAHAYA merambat jauh lebih cepat daripada gelombang BUNYI.", "Perbaikan: Suara ledakan memantul-mantul di langit sehingga sampai ke bumi lebih lambat."]
+                    },
+                    {
+                        id: 'c2', text: "LAPORAN 2: 'Gema terjadi ketika kita berteriak di dalam kamar mandi atau ruangan backstage yang sempit dan tertutup rapat.'",
+                        evalCorrect: 1, createCorrect: 2,
+                        evalOptions: ["Benar, kamar mandi memantulkan suara dengan baik.", "Salah definisi, yang terjadi di ruangan sempit adalah GAUNG (kerdam), bukan gema.", "Salah, di ruangan sempit bunyi justru diserap, tidak memantul."],
+                        createOptions: ["Perbaikan: Gema terjadi jika kita berteriak di dalam lemari pakaian.", "Perbaikan: Gema tidak pernah terjadi.", "Perbaikan: Gaung terjadi di ruangan sempit (pantulan bersamaan dengan bunyi asli), Gema terjadi di area luas seperti stadion/tebing (pantulan terdengar setelah bunyi asli)."]
+                    },
+                    {
+                        id: 'c3', text: "LAPORAN 3: 'Untuk membuat studio musik yang kedap suara agar tidak bising keluar, dinding ruangan harus dilapisi keramik dan kaca tebal.'",
+                        evalCorrect: 2, createCorrect: 0,
+                        evalOptions: ["Benar, kaca tebal bisa memblokir suara.", "Salah, harusnya dilapisi dengan seng dan baja.", "Salah memilih bahan. Kaca dan keramik memiliki permukaan keras yang justru MEMANTULKAN bunyi dengan baik."],
+                        createOptions: ["Perbaikan: Dinding harus dilapisi benda yang berpermukaan lunak untuk menyerap bunyi, seperti busa, karpet, atau gabus.", "Perbaikan: Studio tidak perlu dilapisi apa-apa, cukup gunakan volume pelan.", "Perbaikan: Dinding harus dilubangi agar suara bisa keluar sebagian."]
+                    },
+                    {
+                        id: 'c4', text: "LAPORAN 4: 'Suara musik dari panggung luar tidak bisa didengar oleh ikan yang ada di kolam taman karena bunyi tidak bisa menembus air.'",
+                        evalCorrect: 0, createCorrect: 2,
+                        evalOptions: ["Salah, bunyi BISA merambat melalui zat cair (air) hingga ke telinga ikan.", "Benar, bunyi hanya bisa merambat di udara luar.", "Salah, ikan tidak memiliki sensor penerima getaran."],
+                        createOptions: ["Perbaikan: Bunyi hanya merambat dari udara ke udara.", "Perbaikan: Bunyi akan memantul seluruhnya ketika mengenai permukaan air.", "Perbaikan: Gelombang bunyi merambat melalui udara, lalu diteruskan oleh zat cair (air) hingga terasa oleh ikan."]
+                    },
+                    {
+                        id: 'c5', text: "LAPORAN 5: 'Pada alat musik gitar di panggung, menekan senar pada posisi yang lebih pendek (dekat ke lubang) akan menghasilkan nada bunyi yang lebih rendah/bas.'",
+                        evalCorrect: 1, createCorrect: 1,
+                        evalOptions: ["Benar, semakin pendek senar suaranya makin berat.", "Salah konsep frekuensi. Senar yang lebih pendek akan bergetar lebih cepat, sehingga frekuensinya naik.", "Salah, posisi menekan senar tidak mempengaruhi nada, hanya volume."],
+                        createOptions: ["Perbaikan: Menekan senar lebih keras baru mengubah nada.", "Perbaikan: Semakin pendek bagian senar yang dipetik, getarannya semakin cepat, sehingga nada yang dihasilkan semakin TINGGI (melengking).", "Perbaikan: Gitar menghasilkan nada tinggi dari tabung kayunya, bukan senarnya."]
+                    }
+                ]
+            },
+            5: {
+                title: "Panggung Utama",
+                subtitle: "Misi: Penampilan Puncak",
+                questions: {
+                    q1: "1. Berikan rating bintang (1-5) untuk tingkat pemahamanmu tentang Sifat-Sifat Gelombang Bunyi!",
+                    q2: "2. Sebutkan minimal 3 sifat energi bunyi yang telah kamu pelajari hari ini!",
+                    q3: "3. Tuliskan janji aksimu (Misal: 'Aku berjanji tidak akan mendengar musik pakai earphone terlalu keras agar telinga tetap sehat')!"
+                }
+            }
+        };
+
+        function PetualanganKonser() {
+            const [currentView, setCurrentView] = useState('intro'); 
+            const [unlockedLevel, setUnlockedLevel] = useState(1); 
+            const [correctCount, setCorrectCount] = useState(0); 
+            const [userData, setUserData] = useState({});
+            const [isMenuOpen, setIsMenuOpen] = useState(false);
+            const [isFullscreen, setIsFullscreen] = useState(false);
+            const [isMusicPlaying, setIsMusicPlaying] = useState(false);
+            
+            const [playerName, setPlayerName] = useState("");
+            const [playerSchool, setPlayerSchool] = useState("");
+
+            const audioRef = useRef(null);
+
+            useEffect(() => {
+                if (audioRef.current) {
+                    if (isMusicPlaying) {
+                        const playPromise = audioRef.current.play();
+                        if (playPromise !== undefined) {
+                            playPromise.catch(error => {
+                                console.log("Autoplay blocked/failed:", error);
+                                setIsMusicPlaying(false);
+                            });
+                        }
+                    } else {
+                        audioRef.current.pause();
+                    }
+                }
+            }, [isMusicPlaying]);
+
+            const toggleMusic = () => setIsMusicPlaying(!isMusicPlaying);
+
+            const handleStartGame = (name, school) => {
+                setPlayerName(name);
+                setPlayerSchool(school);
+                setCurrentView('tujuan_panduan'); 
+                setIsMusicPlaying(true); 
+            };
+
+            const handleLevelComplete = (levelNum) => {
+                if (levelNum < 5) {
+                    setUnlockedLevel(prev => Math.max(prev, levelNum + 1));
+                    setCurrentView('map');
+                } else {
+                    setCurrentView('end');
+                }
+            };
+
+            const startLevel = (levelNum) => {
+                setCurrentView(`level${levelNum}`);
+            };
+
+            const updateUserData = (key, value) => setUserData(prev => ({ ...prev, [key]: value }));
+            const incrementCorrect = () => setCorrectCount(prev => prev + 1);
+
+            const toggleFullscreen = () => {
+                if (!document.fullscreenElement) {
+                    document.documentElement.requestFullscreen().catch((e) => console.log(e));
+                    setIsFullscreen(true);
+                } else {
+                    if (document.exitFullscreen) {
+                        document.exitFullscreen();
+                        setIsFullscreen(false);
+                    }
+                }
+            };
+
+            let currentIslandName = "";
+            let currentMission = "";
+            let currentIcon = "";
+            if (currentView.startsWith('level')) {
+                const lvl = parseInt(currentView.replace('level', ''));
+                if (LEVEL_DATA[lvl]) {
+                    currentIslandName = LEVEL_DATA[lvl].title;
+                    currentMission = LEVEL_DATA[lvl].subtitle;
+                    const icons = ["", "🎸", "🎤", "🎫", "🎛️", "🌟"];
+                    currentIcon = icons[lvl];
+                }
+            }
+
+            return (
+                <div className="h-screen w-screen text-blue-100 flex flex-col transition-all duration-700 ease-in-out overflow-hidden"
+                     style={{ 
+                       backgroundImage: `url(${MAIN_BG_IMAGE})`,
+                       backgroundSize: 'cover',
+                       backgroundPosition: 'center',
+                       backgroundAttachment: 'fixed',
+                     }}>
+                  
+                  <audio ref={audioRef} src={BACKSONG_URL} loop preload="auto" />
+                  <div className="fixed inset-0 bg-slate-950/80 pointer-events-none z-0 transition-opacity duration-700 backdrop-blur-[6px]"></div>
+
+                  <div className="flex flex-col w-full max-w-[1600px] mx-auto h-full relative z-10">
+                    
+                    {/* Header Top Bar */}
+                    <div className="flex-none z-40 bg-blue-950/80 p-2 md:p-3 xl:p-4 flex justify-between items-center shadow-[0_4px_20px_rgba(59,130,246,0.3)] mx-2 mt-2 gap-2 border border-blue-500/30 rounded-2xl backdrop-blur-md">
+                        {/* Kiri: Logo & Menu */}
+                        <div className="flex items-center gap-2 md:gap-3 xl:gap-4 flex-shrink-0 w-1/4">
+                             <button onClick={() => setIsMenuOpen(!isMenuOpen)} className="p-1.5 xl:p-2 hover:bg-blue-500/20 rounded-full transition text-blue-300">
+                               {isMenuOpen ? <Icons.X className="w-6 h-6 xl:w-8 xl:h-8" /> : <Icons.Menu className="w-6 h-6 xl:w-8 xl:h-8" />}
+                             </button>
+                             <img src={LOGO_IMAGE_URL} alt="Logo" className="w-8 h-8 xl:w-12 xl:h-12 object-cover rounded-full border-2 border-cyan-400 shadow-[0_0_8px_rgba(34,211,238,0.8)] hidden sm:block" />
+                             <div className="hidden lg:flex flex-col">
+                               <h1 className="font-concert font-black text-lg xl:text-xl 2xl:text-2xl leading-none text-glow text-cyan-300">Konser Sains</h1>
+                             </div>
+                        </div>
+
+                        {/* Tengah: Nama & Misi */}
+                        <div className="flex-1 flex flex-col items-center justify-center text-center overflow-hidden">
+                            {currentIslandName ? (
+                                <>
+                                    <div className="flex items-center bg-indigo-900/50 px-3 md:px-5 py-1 xl:py-1.5 rounded-full text-xs md:text-base xl:text-xl font-bold text-blue-100 border border-indigo-400/50 shadow-inner whitespace-nowrap neon-glow">
+                                        <span className="mr-1 xl:mr-2 text-base md:text-xl xl:text-2xl">{currentIcon}</span> {currentIslandName}
+                                    </div>
+                                    <div className="text-[10px] md:text-xs xl:text-sm font-bold text-cyan-200 mt-1 bg-black/40 px-3 md:px-5 py-0.5 xl:py-1 rounded-full truncate max-w-full">
+                                        {currentMission}
+                                    </div>
+                                </>
+                            ) : (
+                                <div className="flex flex-col items-center lg:hidden">
+                                    <h1 className="font-concert font-bold text-base leading-none text-glow text-cyan-300">Konser Sains</h1>
+                                    {playerName && <div className="text-[10px] text-blue-300 font-medium mt-1 bg-black/40 px-2 py-0.5 rounded-full">Musisi {playerName}</div>}
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Kanan: Musik & Bintang */}
+                        <div className="flex items-center gap-2 md:gap-3 xl:gap-5 flex-shrink-0 w-1/4 justify-end">
+                            <button onClick={toggleMusic} className="p-1.5 xl:p-2 hover:bg-blue-500/20 rounded-full transition text-blue-300">
+                               {isMusicPlaying ? <Icons.Volume2 className="w-5 h-5 md:w-6 md:h-6 xl:w-8 xl:h-8"/> : <Icons.VolumeX className="w-5 h-5 md:w-6 md:h-6 xl:w-8 xl:h-8"/>}
+                            </button>
+                            <div className="flex items-center gap-1.5 bg-slate-900/80 px-3 py-1.5 xl:px-5 xl:py-2 rounded-full text-sm md:text-base xl:text-xl border border-blue-500/30 neon-glow">
+                              <Icons.Activity className="w-4 h-4 md:w-5 md:h-5 xl:w-6 xl:h-6 text-cyan-400 animate-pulse" />
+                              <span className="font-bold text-cyan-100">{correctCount}<span className="text-[10px] md:text-xs xl:text-sm text-cyan-400/50 font-normal ml-1">/20</span></span>
+                            </div>
+                            <button onClick={toggleFullscreen} className="p-1.5 xl:p-2 hover:bg-blue-500/20 rounded-full hidden sm:block transition text-blue-300">
+                               {isFullscreen ? <Icons.Minimize className="w-5 h-5 md:w-6 md:h-6 xl:w-8 xl:h-8"/> : <Icons.Maximize className="w-5 h-5 md:w-6 md:h-6 xl:w-8 xl:h-8"/>}
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Menu Overlay */}
+                    {isMenuOpen && (
+                      <div className="absolute top-[70px] md:top-[90px] xl:top-[100px] left-2 w-64 md:w-72 xl:w-80 bg-slate-900/95 backdrop-blur-xl shadow-[0_10px_30px_rgba(0,0,0,0.8)] z-50 rounded-2xl border border-blue-500/50 animate-fade-in overflow-hidden neon-glow">
+                          <div className="p-4 xl:p-5 space-y-3 xl:space-y-4">
+                            <div className="font-bold text-cyan-400 uppercase text-xs xl:text-sm tracking-wider mb-2 border-b border-blue-500/30 pb-2 font-concert">Setlist Navigasi</div>
+                            <button onClick={() => {setCurrentView('map'); setIsMenuOpen(false)}} className="w-full text-left p-3 rounded-xl flex items-center gap-3 xl:gap-4 hover:bg-blue-900/50 text-blue-100 font-bold text-sm md:text-base xl:text-lg transition-colors border border-transparent hover:border-blue-400/50">
+                               <Icons.Map className="w-5 h-5 xl:w-6 xl:h-6 text-cyan-400" /> Denah Festival
+                            </button>
+                            <button onClick={() => {setCurrentView('intro'); setIsMenuOpen(false)}} className="w-full text-left p-3 rounded-xl flex items-center gap-3 xl:gap-4 hover:bg-blue-900/50 text-blue-100 font-bold text-sm md:text-base xl:text-lg transition-colors border border-transparent hover:border-blue-400/50">
+                               <Icons.Home className="w-5 h-5 xl:w-6 xl:h-6 text-cyan-400" /> Pintu Masuk Utama
+                            </button>
+                            <hr className="my-2 border-blue-500/20" />
+                            <button onClick={() => window.location.reload()} className="w-full text-left p-3 rounded-xl flex items-center gap-3 xl:gap-4 text-rose-400 hover:bg-rose-950/50 font-bold text-sm md:text-base xl:text-lg transition-colors border border-transparent hover:border-rose-500/50">
+                              <Icons.RefreshCcw className="w-5 h-5 xl:w-6 xl:h-6" /> Ulangi Konser (Reset)
+                            </button>
+                          </div>
+                      </div>
+                    )}
+
+                    {/* Content Area */}
+                    <main className="flex-grow flex flex-col min-h-0 overflow-y-auto custom-scrollbar relative">
+                        <div className={`flex flex-col flex-grow w-full mx-auto p-2 md:p-4 xl:p-6 ${currentView === 'intro' || currentView === 'tujuan_panduan' || currentView === 'materi' || currentView === 'map' ? 'justify-center items-center' : ''}`}>
+                            {currentView === 'intro' && <IntroScreen onStart={handleStartGame} />}
+                            {currentView === 'tujuan_panduan' && <TujuanPanduanScreen onNext={() => setCurrentView('materi')} />}
+                            {currentView === 'materi' && <MateriScreen onNext={() => setCurrentView('map')} />}
+                            {currentView === 'map' && <MapScreen unlockedLevel={unlockedLevel} onLevelSelect={startLevel} onFinish={() => setCurrentView('end')} isCompleted={unlockedLevel > 5} />}
+                            {currentView === 'level1' && <Level1Backstage onComplete={() => handleLevelComplete(1)} onCorrect={incrementCorrect} />}
+                            {currentView === 'level2' && <Level2CheckSound onComplete={() => handleLevelComplete(2)} onCorrect={incrementCorrect} />}
+                            {currentView === 'level3' && <Level3AreaPenonton onComplete={() => handleLevelComplete(3)} onCorrect={incrementCorrect} />}
+                            {currentView === 'level4' && <Level4RuangMixing onComplete={() => handleLevelComplete(4)} onCorrect={incrementCorrect} />}
+                            {currentView === 'level5' && <Level5Panggung onComplete={() => handleLevelComplete(5)} saveRef={(val) => updateUserData('ref5', val)} saveData={updateUserData} />}
+                            {currentView === 'end' && <EndScreen userData={userData} correctCount={correctCount} playerName={playerName} playerSchool={playerSchool} onRestart={() => window.location.reload()} />}
+                        </div>
+                    </main>
+
+                  </div>
+                </div>
+            );
+        }
+
+        function IntroScreen({ onStart }) {
+            const [name, setName] = useState("");
+            const [school, setSchool] = useState("");
+            const [showError, setShowError] = useState(false);
+
+            const handleStartClick = () => {
+                if (name.trim().length > 0 && school.trim().length > 0) {
+                    onStart(name, school);
+                } else {
+                    setShowError(true);
+                    setTimeout(() => setShowError(false), 3000); 
+                }
+            };
+
+            return (
+                <div className="w-full flex flex-col justify-center items-center gap-4 xl:gap-6 animate-fade-in flex-1 min-h-0">
+                  <div className="flex flex-col md:flex-row items-center justify-center gap-4 xl:gap-8 bg-slate-900/80 p-5 xl:p-8 rounded-3xl backdrop-blur-md shadow-[0_0_30px_rgba(59,130,246,0.3)] border border-blue-500/50 w-full max-w-4xl xl:max-w-5xl">
+                    <img src={LOGO_IMAGE_URL} alt="Logo" className="w-28 md:w-36 xl:w-44 h-28 md:h-36 xl:h-44 object-cover rounded-full border-4 border-cyan-400 shadow-[0_0_20px_rgba(34,211,238,0.6)] animate-float shrink-0" />
+                    <div className="text-center md:text-left">
+                        <h2 className="text-3xl md:text-5xl xl:text-6xl font-concert font-black text-cyan-300 text-glow leading-tight tracking-widest">Festival Akustik</h2>
+                        <div className="flex flex-col sm:flex-row items-center gap-2 mt-3 xl:mt-5">
+                            <p className="text-sm md:text-base xl:text-xl text-indigo-100 font-bold bg-indigo-900/60 inline-block px-5 py-2 rounded-full border border-indigo-400/40 shadow-sm uppercase tracking-wide">Gelombang Bunyi</p>
+                            <p className="text-sm md:text-base xl:text-xl text-cyan-200 font-bold bg-blue-900/60 inline-block px-5 py-2 rounded-full border border-cyan-400/40 shadow-sm uppercase tracking-wide">IPAS - Kelas 5 SD</p>
+                        </div>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col lg:flex-row w-full max-w-4xl xl:max-w-5xl gap-4 xl:gap-6 h-auto">
+                    <div className="flex-1 bg-slate-900/80 p-6 xl:p-8 rounded-3xl shadow-xl border border-blue-500/40 backdrop-blur-md flex flex-col justify-center relative overflow-hidden">
+                        <div className="absolute -right-10 -top-10 text-9xl opacity-10">🎸</div>
+                        <p className="text-blue-100 text-sm md:text-base xl:text-xl leading-relaxed xl:leading-loose font-medium relative z-10">
+                            "Sistem tata suara aktif. Selamat datang, Calon Bintang Utama! Panggung Festival Akustik siap membawamu meneliti rahasia di balik musik: <span className="text-cyan-400 font-bold">Gelombang Bunyi</span>.
+                            <br/><br/>
+                            Hari ini, kamu diundang untuk menjalani <span className="text-indigo-400 font-bold">Misi Observasi Audio</span>. Pahami sifat perambatannya, atur gema panggung, dan rancang tata suara. Ambil mikrofonmu dan mulailah!"
+                        </p>
+                    </div>
+
+                    <div className="flex-1 w-full bg-blue-950/80 p-6 xl:p-8 rounded-3xl border border-blue-500/50 shadow-[0_0_20px_rgba(59,130,246,0.2)] relative flex flex-col justify-center backdrop-blur-md">
+                        <h3 className="font-concert font-black text-cyan-300 mb-5 flex items-center justify-center gap-3 text-base md:text-xl xl:text-2xl uppercase tracking-widest border-b border-blue-500/30 pb-3 xl:pb-4 text-glow">
+                            <Icons.Users className="w-6 h-6 xl:w-8 xl:h-8" /> Tiket VIP Festival
+                        </h3>
+                        <div className="space-y-5">
+                            <div className="relative">
+                                <span className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 xl:w-7 xl:h-7 text-cyan-400"><Icons.User className="w-5 h-5 xl:w-7 xl:h-7"/></span>
+                                <input type="text" placeholder="Nama Musisi / Kru..." className={`w-full pl-12 xl:pl-14 p-4 xl:p-5 text-sm md:text-base xl:text-xl rounded-2xl border bg-slate-900/60 outline-none font-bold text-blue-100 placeholder-blue-400/50 transition-colors shadow-inner ${showError && name.length === 0 ? 'border-rose-500 bg-rose-950/30' : 'border-blue-500/50 focus:border-cyan-400 focus:bg-slate-800'}`} value={name} onChange={(e) => setName(e.target.value)} />
+                            </div>
+                            <div className="relative">
+                                <span className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 xl:w-7 xl:h-7 text-cyan-400"><Icons.School className="w-5 h-5 xl:w-7 xl:h-7"/></span>
+                                <input type="text" placeholder="Asal Studio / Sekolah..." className={`w-full pl-12 xl:pl-14 p-4 xl:p-5 text-sm md:text-base xl:text-xl rounded-2xl border bg-slate-900/60 outline-none font-bold text-blue-100 placeholder-blue-400/50 transition-colors shadow-inner ${showError && school.length === 0 ? 'border-rose-500 bg-rose-950/30' : 'border-blue-500/50 focus:border-cyan-400 focus:bg-slate-800'}`} value={school} onChange={(e) => setSchool(e.target.value)} />
+                            </div>
+                        </div>
+                        
+                        {showError && (
+                          <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-[90%] bg-rose-950/90 border border-rose-500 text-rose-200 px-5 py-4 rounded-2xl flex flex-col items-center justify-center text-sm xl:text-xl text-center shadow-2xl z-20 font-bold animate-pop-in backdrop-blur-md">
+                              <span className="text-3xl mb-2">🛑</span> Tulis nama di tiket VIP-mu dulu!
+                          </div>
+                        )}
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col-reverse md:flex-row items-center justify-center w-full max-w-4xl xl:max-w-5xl gap-4 mt-2">
+                    <button onClick={handleStartClick} className="bg-gradient-to-r from-blue-700 to-indigo-800 text-white font-bold hover:from-blue-600 hover:to-indigo-700 transition-all border-b-4 border-indigo-900 active:border-b-0 py-4 xl:py-5 px-10 xl:px-14 rounded-full shadow-[0_0_20px_rgba(59,130,246,0.6)] active:shadow-none active:translate-y-1 flex items-center gap-3 justify-center text-lg md:text-xl xl:text-2xl w-full md:w-auto uppercase tracking-widest font-concert">
+                        Naik Panggung <Icons.ArrowRight className="w-6 h-6 xl:w-8 xl:h-8" />
+                    </button>
+                  </div>
+                </div>
+            );
+        }
+
+        function TujuanPanduanScreen({ onNext }) {
+            const [activeModal, setActiveModal] = useState(null);
+            const closeModal = () => setActiveModal(null);
+
+            return (
+                <div className="w-full h-full flex flex-col justify-center items-center animate-fade-in flex-1 min-h-0 relative">
+                    <div className="bg-slate-900/90 p-6 md:p-10 xl:p-12 rounded-[2rem] shadow-[0_0_40px_rgba(59,130,246,0.3)] border border-blue-500/40 backdrop-blur-xl w-full max-w-4xl flex flex-col relative overflow-hidden">
+                        
+                        <div className="text-center border-b border-blue-500/30 pb-4 xl:pb-6 mb-6 xl:mb-8 flex-shrink-0 relative z-10">
+                            <h2 className="text-3xl md:text-5xl xl:text-6xl font-concert font-black text-cyan-300 uppercase tracking-widest text-glow">Buku Panduan Kru</h2>
+                            <p className="text-base md:text-lg xl:text-xl text-blue-300 font-medium mt-2 xl:mt-3">Akses panduan di bawah ini untuk memahami tugas panggungmu!</p>
+                        </div>
+                        
+                        <div className="flex flex-col gap-5 md:gap-6 justify-center items-center flex-1 my-4 relative z-10 w-full max-w-2xl mx-auto">
+                            <button onClick={() => setActiveModal('tujuan')} className="w-full bg-gradient-to-r from-blue-800 to-indigo-800 hover:from-blue-700 hover:to-indigo-700 text-indigo-100 font-bold py-5 md:py-6 px-6 md:px-8 rounded-2xl shadow-lg border border-blue-400/50 transition-all flex items-center justify-between text-xl md:text-2xl xl:text-3xl group">
+                                <span className="flex items-center gap-4"><div className="bg-white/10 p-2 rounded-xl group-hover:scale-110 transition-transform"><Icons.CheckCircle className="w-8 h-8 md:w-10 md:h-10 text-cyan-300" /></div> Tujuan Pembelajaran</span>
+                                <Icons.ArrowRight className="w-8 h-8 md:w-10 md:h-10 opacity-70 group-hover:opacity-100 group-hover:translate-x-2 transition-all text-cyan-300" />
+                            </button>
+
+                            <button onClick={() => setActiveModal('panduan')} className="w-full bg-gradient-to-r from-indigo-800 to-cyan-900 hover:from-indigo-700 hover:to-cyan-800 text-indigo-100 font-bold py-5 md:py-6 px-6 md:px-8 rounded-2xl shadow-lg border border-blue-400/50 transition-all flex items-center justify-between text-xl md:text-2xl xl:text-3xl group">
+                                <span className="flex items-center gap-4"><div className="bg-white/10 p-2 rounded-xl group-hover:scale-110 transition-transform"><Icons.Map className="w-8 h-8 md:w-10 md:h-10 text-cyan-300" /></div> Protokol Festival</span>
+                                <Icons.ArrowRight className="w-8 h-8 md:w-10 md:h-10 opacity-70 group-hover:opacity-100 group-hover:translate-x-2 transition-all text-cyan-300" />
+                            </button>
+                        </div>
+                        
+                        <div className="mt-8 pt-6 xl:mt-10 xl:pt-8 border-t border-blue-500/30 text-center flex-shrink-0 relative z-10">
+                            <button onClick={onNext} className="bg-slate-800 text-blue-100 font-bold hover:bg-slate-700 transition-all border-b-4 border-slate-950 active:border-b-0 py-4 px-12 xl:py-5 xl:px-16 text-xl md:text-2xl xl:text-3xl rounded-full shadow-lg active:translate-y-1 inline-flex items-center gap-3 uppercase tracking-widest font-concert">
+                                Cek Setlist Materi <Icons.ArrowRight className="w-6 h-6 xl:w-8 xl:h-8 text-cyan-400" />
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Modals */}
+                    {activeModal && (
+                        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in" onClick={closeModal}>
+                            <div className="bg-slate-900 w-full max-w-4xl rounded-[2rem] shadow-[0_0_40px_rgba(34,211,238,0.4)] border border-cyan-500/50 overflow-hidden flex flex-col max-h-[90vh] animate-pop-in" onClick={e => e.stopPropagation()}>
+                                <div className="flex justify-between items-center p-5 md:p-8 border-b border-cyan-500/30 bg-slate-800/80">
+                                    <h3 className="font-concert font-black text-2xl md:text-3xl xl:text-4xl text-cyan-300 flex items-center gap-3 uppercase tracking-wide text-glow">
+                                        {activeModal === 'tujuan' && <><Icons.CheckCircle className="w-8 h-8 md:w-10 md:h-10 text-cyan-400"/> Tujuan Belajar</>}
+                                        {activeModal === 'panduan' && <><Icons.Map className="w-8 h-8 md:w-10 md:h-10 text-cyan-400"/> Protokol Festival</>}
+                                    </h3>
+                                    <button onClick={closeModal} className="p-3 bg-slate-800 hover:bg-rose-900/50 hover:text-rose-400 text-indigo-300 rounded-full transition-colors border border-slate-600">
+                                        <Icons.X className="w-6 h-6 md:w-8 md:h-8" />
+                                    </button>
+                                </div>
+                                
+                                <div className="p-6 md:p-10 overflow-y-auto custom-scrollbar flex-1 bg-slate-900/90">
+                                    {activeModal === 'tujuan' && (
+                                        <div className="bg-blue-950/50 p-6 xl:p-10 rounded-3xl shadow-inner border border-blue-500/30 space-y-6">
+                                            <div className="flex gap-5 items-start bg-slate-800/80 p-5 xl:p-8 rounded-2xl border border-blue-400/30 shadow-md">
+                                                <div className="bg-cyan-900/80 text-cyan-100 rounded-2xl w-14 h-14 md:w-16 md:h-16 flex items-center justify-center flex-shrink-0 text-2xl md:text-3xl border border-cyan-400/50">🎯</div>
+                                                <p className="text-indigo-100 font-medium text-lg md:text-xl xl:text-3xl leading-relaxed mt-1">Murid memahami dan mendemonstrasikan penerapan konsep gelombang bunyi dalam kehidupan sehari-hari.</p>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {activeModal === 'panduan' && (
+                                        <div className="bg-blue-950/50 p-6 xl:p-10 rounded-3xl shadow-inner border border-blue-500/30 flex flex-col justify-center">
+                                            <ul className="text-lg md:text-xl xl:text-2xl text-indigo-100 space-y-5 md:space-y-6 font-medium">
+                                                <li className="flex items-start gap-4 xl:gap-5 bg-slate-800/80 p-5 md:p-6 rounded-2xl border border-blue-400/30 shadow-md">
+                                                    <div className="bg-blue-900/50 p-2 rounded-xl text-cyan-400 border border-cyan-500/30 shrink-0"><Icons.ArrowRight className="w-6 h-6 md:w-8 md:h-8" /></div>
+                                                    <span className="mt-1"><b>Fase 1:</b> Masuk <b>Setlist Materi</b> untuk menonton rekaman konser visual & membaca jurnal sifat bunyi.</span>
+                                                </li>
+                                                <li className="flex items-start gap-4 xl:gap-5 bg-slate-800/80 p-5 md:p-6 rounded-2xl border border-blue-400/30 shadow-md">
+                                                    <div className="bg-blue-900/50 p-2 rounded-xl text-cyan-400 border border-cyan-500/30 shrink-0"><Icons.ArrowRight className="w-6 h-6 md:w-8 md:h-8" /></div>
+                                                    <span className="mt-1"><b>Fase 2:</b> Buka <b>Denah Festival</b> dan selesaikan tantangan di 4 area panggung berbeda.</span>
+                                                </li>
+                                                <li className="flex items-start gap-4 xl:gap-5 bg-slate-800/80 p-5 md:p-6 rounded-2xl border border-blue-400/30 shadow-md">
+                                                    <div className="bg-blue-900/50 p-2 rounded-xl text-cyan-400 border border-cyan-500/30 shrink-0"><Icons.ArrowRight className="w-6 h-6 md:w-8 md:h-8" /></div>
+                                                    <span className="mt-1"><b>Fase 3:</b> Kumpulkan energi gelombang suara untuk debut panggung sucimu!</span>
+                                                </li>
+                                            </ul>
+                                        </div>
+                                    )}
+                                </div>
+                                <div className="p-5 md:p-8 border-t border-cyan-500/30 bg-slate-800/80 text-center">
+                                    <button onClick={closeModal} className="bg-gradient-to-r from-cyan-600 to-teal-600 hover:from-cyan-500 hover:to-teal-500 text-white font-bold py-4 px-12 rounded-full shadow-lg active:translate-y-1 text-xl xl:text-2xl uppercase tracking-widest font-concert">Protokol Diterima!</button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+        }
+
+        const LATIHAN_SOAL_MATERI = [
+            { 
+                id: 'c1', level: 'C1 (Mengingat)', 
+                q: 'Manakah dari berikut ini yang BUKAN merupakan syarat utama agar bunyi dapat terdengar oleh telinga kita?', 
+                options: [
+                    'Terdapat benda yang bergetar (sumber bunyi).',
+                    'Terdapat medium atau zat perantara.',
+                    'Terdapat ruang hampa udara.',
+                    'Terdapat alat pendengar yang sehat.'
+                ],
+                correct: 2,
+                explanation: 'Syarat terdengarnya bunyi adalah adanya sumber bunyi, medium (zat perantara seperti udara/air/padat), dan alat pendengar. Bunyi tidak bisa merambat di ruang hampa udara.' 
+            },
+            { 
+                id: 'c2', level: 'C2 (Memahami)', 
+                q: 'Pernyataan yang paling tepat untuk membedakan antara gema dan gaung (kerdam) adalah....', 
+                options: [
+                    'Gema terjadi di ruangan sempit, sedangkan gaung di tebing luas.',
+                    'Gema adalah pantulan yang terdengar jelas setelah bunyi asli, sedangkan gaung terdengar bersamaan dengan bunyi asli.',
+                    'Gema menyerap bunyi, sedangkan gaung memantulkan bunyi.',
+                    'Gema merusak telinga, sedangkan gaung enak didengar.'
+                ],
+                correct: 1,
+                explanation: 'Gema terdengar JELAS SETELAH bunyi asli selesai (biasanya terjadi di tempat luas/tebing). Gaung terdengar BERSAMAAN dengan bunyi asli sehingga suara menjadi tidak jelas (biasanya di ruangan sempit/kosong).' 
+            },
+            { 
+                id: 'c3', level: 'C3 (Mengaplikasikan)', 
+                q: 'Kelelawar dapat terbang mencari mangsa di malam hari yang gelap tanpa menabrak benda di sekitarnya. Kemampuan ini memanfaatkan sifat gelombang bunyi, yaitu....', 
+                options: [
+                    'Pembiasan bunyi (Pembelokan)',
+                    'Penyerapan bunyi (Peredaman)',
+                    'Pemantulan bunyi (Ekolokasi)',
+                    'Perambatan bunyi tanpa medium'
+                ],
+                correct: 2,
+                explanation: 'Kelelawar menggunakan sistem Ekolokasi. Mereka memancarkan bunyi ultrasonik dan mendengarkan PANTULANNYA (gema) untuk mengetahui jarak dan letak mangsa tanpa perlu melihat.' 
+            },
+            { 
+                id: 'c4', level: 'C4 (Menganalisis)', 
+                q: 'Mengapa suara kereta api yang masih sangat jauh akan lebih cepat terdengar jika kita menempelkan telinga pada rel besi dibandingkan mendengarkannya langsung di udara?', 
+                options: [
+                    'Karena rel besi menghasilkan suara yang lebih keras dari mesin kereta.',
+                    'Karena gelombang bunyi merambat jauh lebih cepat dan kuat melalui medium benda padat (besi) daripada benda gas (udara).',
+                    'Karena udara menyerap seluruh bunyi dari kereta api.',
+                    'Karena telinga kita lebih sensitif jika ditempelkan pada benda yang dingin.'
+                ],
+                correct: 1,
+                explanation: 'Gelombang bunyi merambat paling cepat melalui benda padat (seperti besi) karena partikel-partikel penyusun benda padat sangat rapat sehingga getaran cepat disalurkan.' 
+            },
+            { 
+                id: 'c5', level: 'C5 (Mengevaluasi)', 
+                q: 'Budi memiliki kebiasaan mendengarkan musik menggunakan earphone dengan volume maksimal setiap hari. Evaluasi tindakan Budi tersebut berdasarkan ilmu kesehatan telinga!', 
+                options: [
+                    'Aman, selama earphone yang digunakan berkualitas dan mahal.',
+                    'Baik, karena dapat melatih telinga agar kebal terhadap suara bising di jalan raya.',
+                    'Biasa saja, karena gendang telinga manusia bisa menyembuhkan dirinya sendiri dalam sehari.',
+                    'Berbahaya, karena paparan bunyi bertekanan tinggi terus-menerus dapat merusak gendang telinga dan saraf koklea secara permanen.'
+                ],
+                correct: 3,
+                explanation: 'Paparan energi gelombang bunyi yang terlalu keras dan terus-menerus dapat merusak gendang telinga serta sel-sel saraf pendengaran di dalam rumah siput (koklea) secara permanen.' 
+            },
+            { 
+                id: 'c6', level: 'C6 (Mencipta)', 
+                q: 'Jika kamu ditugaskan merancang ruangan kedap suara untuk studio musik sederhana di rumahmu, material manakah yang paling efektif kamu pilih untuk melapisi dinding ruangan tersebut?', 
+                options: [
+                    'Kaca tebal dan papan kayu jati',
+                    'Karpet busa tebal dan kotak telur karton',
+                    'Lembaran seng dan besi aluminium',
+                    'Keramik dinding dan batu bata merah'
+                ],
+                correct: 1,
+                explanation: 'Benda yang permukaannya lunak, berpori, dan berserat (seperti karpet, busa, dan karton telur) dapat MENYERAP (meredam) gelombang bunyi, sehingga suara tidak memantul atau bocor ke luar.' 
+            }
+        ];
+
+        const LatihanSoalBlock = () => {
+            const [answers, setAnswers] = useState({}); 
+            const [showResult, setShowResult] = useState({}); 
+
+            const handleOptionSelect = (soalId, optIdx, correctIdx) => {
+                if (showResult[soalId]) return; 
+                
+                setAnswers(prev => ({ ...prev, [soalId]: optIdx }));
+                setShowResult(prev => ({ ...prev, [soalId]: true }));
+
+                if (optIdx === correctIdx) {
+                    playSfx('correct');
+                } else {
+                    playSfx('incorrect');
+                }
+            };
+
+            return (
+                <div className="mt-8 bg-slate-900/80 p-4 md:p-8 rounded-[2rem] border border-blue-500/40 shadow-[0_0_30px_rgba(59,130,246,0.15)] flex-shrink-0 animate-fade-in">
+                    <h4 className="font-concert font-black text-cyan-300 text-xl md:text-3xl border-b border-blue-500/30 pb-4 mb-6 text-glow flex items-center gap-3">
+                        <Icons.Activity className="w-6 h-6 md:w-8 md:h-8 text-indigo-400" />
+                        Latihan Mandiri (C1 - C6)
+                    </h4>
+                    <p className="text-blue-200 mb-6 font-medium text-sm md:text-base leading-relaxed bg-slate-800/50 p-4 rounded-xl border border-slate-600 shadow-inner">
+                        Uji pemahaman dan analisismu setelah menyimak materi di atas. Pilih salah satu jawaban yang paling tepat!
+                    </p>
+                    <div className="space-y-6">
+                        {LATIHAN_SOAL_MATERI.map((soal, index) => {
+                            const isAnswered = showResult[soal.id];
+                            const selectedOpt = answers[soal.id];
+                            const isCorrect = selectedOpt === soal.correct;
+
+                            return (
+                                <div key={soal.id} className={`bg-blue-950/30 rounded-2xl border transition-all duration-300 shadow-sm overflow-hidden ${isAnswered ? (isCorrect ? 'border-indigo-500/60' : 'border-rose-500/60') : 'border-blue-500/30 hover:shadow-md hover:border-blue-400/60'}`}>
+                                    <div className="p-4 md:p-5">
+                                        <div className="flex gap-3 mb-3">
+                                            <span className="text-xs font-bold text-indigo-400 uppercase tracking-widest bg-indigo-900/40 px-2 py-1 rounded-md border border-indigo-500/30 shrink-0 h-fit">
+                                                {soal.level}
+                                            </span>
+                                            <span className="text-blue-100 font-bold text-sm md:text-lg leading-snug">
+                                                {index + 1}. {soal.q}
+                                            </span>
+                                        </div>
+
+                                        <div className="space-y-2 pl-0 md:pl-4 mt-4">
+                                            {soal.options.map((opt, oIdx) => {
+                                                let optClass = "border-slate-700 bg-slate-800/50 hover:bg-blue-900/30 hover:border-blue-500/50 text-indigo-200 cursor-pointer";
+                                                let iconClass = "border-slate-500 bg-slate-700";
+                                                let iconContent = null;
+
+                                                if (isAnswered) {
+                                                    optClass = "border-slate-700 bg-slate-800/30 text-slate-500 opacity-60 cursor-default"; 
+                                                    
+                                                    if (oIdx === soal.correct) {
+                                                        optClass = "border-indigo-500 bg-indigo-900/40 text-indigo-100 shadow-[0_0_10px_rgba(99,102,241,0.2)]";
+                                                        iconClass = "border-indigo-400 bg-indigo-500";
+                                                        iconContent = <Icons.CheckCircle className="w-4 h-4 text-white" />;
+                                                    } else if (oIdx === selectedOpt && !isCorrect) {
+                                                        optClass = "border-rose-500 bg-rose-900/40 text-rose-100";
+                                                        iconClass = "border-rose-400 bg-rose-500";
+                                                        iconContent = <Icons.X className="w-4 h-4 text-white" />;
+                                                    }
+                                                }
+
+                                                return (
+                                                    <button 
+                                                        key={oIdx} 
+                                                        onClick={() => handleOptionSelect(soal.id, oIdx, soal.correct)}
+                                                        disabled={isAnswered}
+                                                        className={`w-full text-left px-4 py-3 rounded-xl border text-sm md:text-base font-medium transition-all flex items-start gap-3 ${optClass}`}
+                                                    >
+                                                        <div className={`mt-0.5 flex-shrink-0 w-5 h-5 border-2 rounded-full flex items-center justify-center transition-colors ${iconClass}`}>
+                                                            {iconContent}
+                                                        </div>
+                                                        <span className="flex-1 leading-snug">{opt}</span>
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+
+                                    {/* Penjelasan muncul setelah dijawab */}
+                                    <div className={`overflow-hidden transition-all duration-500 ease-in-out ${isAnswered ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0'}`}>
+                                        <div className={`p-4 md:p-5 border-t ${isCorrect ? 'bg-indigo-950/40 border-indigo-500/30' : 'bg-rose-950/40 border-rose-500/30'}`}>
+                                            <div className="flex gap-2 items-center mb-2">
+                                                {isCorrect ? <Icons.CheckCircle className="w-5 h-5 text-indigo-400" /> : <Icons.X className="w-5 h-5 text-rose-400" />}
+                                                <span className={`text-sm font-bold uppercase tracking-widest ${isCorrect ? 'text-indigo-300' : 'text-rose-300'}`}>
+                                                    {isCorrect ? 'Tepat Sekali!' : 'Sinyal Fals!'}
+                                                </span>
+                                            </div>
+                                            <p className="text-blue-200 font-medium text-sm md:text-base whitespace-pre-wrap leading-relaxed pl-7">
+                                                <span className="font-bold text-cyan-300">Pembahasan:</span> <br/>
+                                                {soal.explanation}
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+            );
+        };
+
+        function MateriScreen({ onNext }) {
+            const [activeTab, setActiveTab] = useState(null); 
+            
+            return (
+                <div className="w-full h-full flex flex-col justify-center items-center animate-fade-in flex-1 min-h-0">
+                  <div className="bg-slate-900/90 p-6 md:p-8 xl:p-10 rounded-[2rem] shadow-[0_0_40px_rgba(59,130,246,0.2)] border border-blue-500/40 backdrop-blur-xl w-full max-w-5xl xl:max-w-6xl flex flex-col flex-1 min-h-0 relative overflow-hidden">
+                      
+                      {activeTab === null ? (
+                          <div className="flex flex-col gap-5 md:gap-8 justify-center items-center flex-1 w-full my-auto z-10 relative">
+                              <h2 className="text-3xl md:text-5xl xl:text-6xl font-concert font-black text-cyan-300 uppercase tracking-widest mb-4 xl:mb-8 text-center text-glow">Panduan Kru Panggung</h2>
+                              
+                              <button onClick={() => setActiveTab('video')} className="w-full max-w-2xl bg-gradient-to-r from-blue-800 to-indigo-900 hover:from-blue-700 hover:to-indigo-800 text-indigo-100 font-bold py-6 md:py-8 px-8 md:px-10 rounded-3xl shadow-lg transition-all flex items-center justify-between text-xl md:text-3xl xl:text-4xl border border-blue-500/50 group">
+                                  <span className="flex items-center gap-4 md:gap-6"><div className="bg-white/10 p-3 rounded-2xl group-hover:scale-110 transition-transform"><span className="text-4xl md:text-5xl">📺</span></div> Video Panduan Konser</span>
+                                  <Icons.ArrowRight className="w-8 h-8 md:w-12 md:h-12 opacity-80 group-hover:opacity-100 group-hover:translate-x-2 transition-all text-blue-300" />
+                              </button>
+
+                              <button onClick={() => setActiveTab('rangkuman')} className="w-full max-w-2xl bg-gradient-to-r from-indigo-800 to-cyan-900 hover:from-indigo-700 hover:to-cyan-800 text-indigo-100 font-bold py-6 md:py-8 px-8 md:px-10 rounded-3xl shadow-lg transition-all flex items-center justify-between text-xl md:text-3xl xl:text-4xl border border-indigo-500/50 group mt-2">
+                                  <span className="flex items-center gap-4 md:gap-6"><div className="bg-white/10 p-3 rounded-2xl group-hover:scale-110 transition-transform"><span className="text-4xl md:text-5xl">📜</span></div> Setlist Materi (Baca)</span>
+                                  <Icons.ArrowRight className="w-8 h-8 md:w-12 md:h-12 opacity-80 group-hover:opacity-100 group-hover:translate-x-2 transition-all text-indigo-300" />
+                              </button>
+                          </div>
+                          
+                      ) : (
+                          <div className="flex flex-col flex-1 min-h-0 w-full relative z-10">
+                              <div className="flex justify-between items-center mb-6 border-b border-blue-500/30 pb-4 flex-shrink-0">
+                                  <button onClick={() => setActiveTab(null)} className="bg-slate-800 hover:bg-slate-700 text-indigo-200 font-bold py-3 px-6 rounded-2xl flex items-center gap-2 transition-colors text-base md:text-xl shadow-md border border-slate-600 uppercase tracking-widest active:scale-95 font-concert">
+                                      <Icons.ArrowRight className="w-6 h-6 rotate-180" /> Kembali
+                                  </button>
+                                  <h3 className="font-concert font-black text-cyan-300 text-xl md:text-3xl xl:text-4xl hidden sm:block uppercase tracking-wider bg-blue-900/40 px-6 py-2 rounded-full border border-blue-500/30 text-glow">
+                                      {activeTab === 'video' ? '📺 Video Panduan' : '📜 Setlist Materi'}
+                                  </h3>
+                              </div>
+
+                              <div className="flex-1 overflow-y-auto custom-scrollbar p-2 md:p-6 flex flex-col bg-slate-900/60 rounded-3xl border border-blue-500/20 shadow-inner">
+                                  
+                                  {activeTab === 'video' && (
+                                      <div className="w-full flex flex-col animate-fade-in space-y-8 pb-8">
+                                          <div className="w-full max-w-4xl mx-auto bg-blue-950/60 border-l-4 border-blue-400 p-5 xl:p-8 rounded-2xl shadow-sm flex items-center gap-4">
+                                              <div className="bg-blue-900/80 p-3 rounded-xl shrink-0"><Icons.BookOpen className="w-8 h-8 xl:w-10 xl:h-10 text-blue-300" /></div>
+                                              <p className="text-base md:text-xl xl:text-2xl font-medium text-blue-100 leading-relaxed">Simak proyeksi video mengenai sifat-sifat dasar gelombang bunyi berikut ini.</p>
+                                          </div>
+                                          
+                                          <div className="w-full max-w-4xl mx-auto aspect-video rounded-[2rem] overflow-hidden shadow-[0_0_30px_rgba(59,130,246,0.3)] border-4 border-blue-500/40 flex-shrink-0 bg-black relative z-20 pointer-events-auto">
+                                              <iframe
+                                                  className="w-full h-full relative z-20 pointer-events-auto"
+                                                  src="https://www.youtube.com/embed/654uXOx_S6A?si=ajTVribX8_ut85wH" 
+                                                  title="YouTube video player"
+                                                  frameBorder="0"
+                                                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                                                  referrerPolicy="strict-origin-when-cross-origin"
+                                                  allowFullScreen
+                                              ></iframe>
+                                          </div>
+                                          
+                                          <div className="w-full max-w-4xl mx-auto">
+                                              <LatihanSoalBlock />
+                                          </div>
+                                      </div>
+                                  )}
+
+                                  {activeTab === 'rangkuman' && (
+                                      <div className="w-full flex flex-col animate-fade-in space-y-8 pb-8">
+                                          <div className="w-full max-w-4xl mx-auto bg-indigo-950/50 border-l-4 border-indigo-500 p-5 xl:p-8 rounded-2xl shadow-sm flex items-center gap-4">
+                                              <div className="bg-indigo-900/80 p-3 rounded-xl shrink-0"><Icons.BookOpen className="w-8 h-8 xl:w-10 xl:h-10 text-indigo-200" /></div>
+                                              <p className="text-base md:text-xl xl:text-2xl font-medium text-indigo-100 leading-relaxed">Bacalah setlist sains ini. Data ini akan sangat berguna untuk memecahkan misi di Peta Festival!</p>
+                                          </div>
+
+                                          <div className="w-full max-w-4xl mx-auto shadow-lg rounded-[2rem] border border-blue-500/40 bg-slate-800/90 flex-shrink-0 overflow-hidden p-6 md:p-8 xl:p-10">
+                                              <h4 className="font-concert font-black text-cyan-300 text-2xl md:text-3xl xl:text-4xl border-b border-blue-500/30 pb-4 mb-6 text-glow">📑 Catatan Sains: Energi Bunyi</h4>
+                                              
+                                              <div className="space-y-6">
+                                                <div className="bg-blue-950/40 p-5 rounded-2xl border border-blue-500/30">
+                                                    <h5 className="font-bold text-cyan-300 text-xl md:text-2xl mb-3 flex items-center gap-2">1. Apa itu Bunyi?</h5>
+                                                    <p className="text-base md:text-lg text-indigo-100 mb-3 font-medium">Bunyi adalah energi berupa gelombang yang merambat, yang dihasilkan oleh benda yang <b>bergetar</b>. Benda yang bergetar ini disebut <i>sumber bunyi</i>.</p>
+                                                    <p className="text-base md:text-lg text-indigo-100 mb-3 font-medium">Banyaknya getaran dalam satu detik disebut <b>Frekuensi</b>. Semakin cepat getarannya, semakin tinggi frekuensinya (suara melengking). Semakin lambat getarannya, suaranya makin rendah (bas).</p>
+                                                </div>
+
+                                                <div className="bg-indigo-950/40 p-5 rounded-2xl border border-indigo-500/30">
+                                                    <h5 className="font-bold text-indigo-300 text-xl md:text-2xl mb-3 flex items-center gap-2">2. Sifat: Bunyi Merambat</h5>
+                                                    <p className="text-base md:text-lg text-indigo-100 mb-3 font-medium">Bunyi TIDAK BISA merambat di ruang hampa udara (seperti di luar angkasa). Bunyi memerlukan <b>medium (zat perantara)</b>, yaitu:</p>
+                                                    <ul className="list-disc ml-6 space-y-1 text-base md:text-lg text-indigo-100 font-medium mb-4">
+                                                        <li><b>Zat Gas (Udara):</b> Suara musik panggung terdengar di area penonton.</li>
+                                                        <li><b>Zat Cair (Air):</b> Suara batu beradu di dalam air, paus berkomunikasi.</li>
+                                                        <li><b>Zat Padat (Logam, Kayu, Tali):</b> Telepon kaleng, tempel telinga di rel kereta api. (<i>Merambat paling cepat!</i>)</li>
+                                                    </ul>
+                                                </div>
+
+                                                <div className="bg-cyan-950/30 p-5 rounded-2xl border border-cyan-500/30">
+                                                    <h5 className="font-bold text-cyan-300 text-xl md:text-2xl mb-3 flex items-center gap-2">3. Sifat: Memantul & Diserap</h5>
+                                                    <p className="text-base md:text-lg text-indigo-100 mb-3 font-medium">Jika bunyi mengenai permukaan yang <b>keras</b> (kaca, batu, besi, keramik), bunyi akan <b>dipantulkan</b>.</p>
+                                                    <ul className="list-disc ml-6 space-y-1 text-base md:text-lg text-indigo-100 font-medium mb-4">
+                                                        <li><b>Gema:</b> Bunyi pantul terdengar JELAS setelah bunyi asli. (Terjadi di area luas seperti stadion/tebing).</li>
+                                                        <li><b>Gaung (Kerdam):</b> Bunyi pantul terdengar BERSAMAAN dengan bunyi asli sehingga tidak jelas. (Terjadi di ruangan sempit kosong).</li>
+                                                    </ul>
+                                                    <p className="text-base md:text-lg text-indigo-100 mb-3 font-medium border-t border-cyan-500/30 pt-3">Jika bunyi mengenai permukaan yang <b>lunak</b> (busa, karpet, gabus, kain), bunyi akan <b>diserap (diredam)</b>. Ini dipakai di bioskop atau studio musik agar tidak bising.</p>
+                                                </div>
+
+                                                <div className="bg-blue-900/40 p-5 rounded-2xl border border-blue-400/30">
+                                                    <h5 className="font-bold text-blue-300 text-xl md:text-2xl mb-3 flex items-center gap-2">4. Sistem Pendengaran Manusia 👂</h5>
+                                                    <p className="text-base md:text-lg text-indigo-100 mb-3 font-medium">Telinga kita adalah sensor penerima gelombang bunyi. Terdiri dari 3 bagian utama:</p>
+                                                    <ul className="list-disc ml-6 space-y-1 text-base md:text-lg text-indigo-100 font-medium mb-4">
+                                                        <li><b>Telinga Luar:</b> Daun telinga berfungsi seperti corong untuk menangkap gelombang bunyi dan menyalurkannya ke liang telinga.</li>
+                                                        <li><b>Telinga Tengah:</b> Gelombang bunyi menggetarkan <i>Gendang Telinga</i>. Getaran ini lalu diperkuat dan diteruskan oleh tulang-tulang pendengaran.</li>
+                                                        <li><b>Telinga Dalam:</b> Getaran masuk ke <i>Rumah Siput (Koklea)</i> yang berisi cairan dan saraf. Di sinilah getaran diubah menjadi sinyal yang dikirim ke otak.</li>
+                                                    </ul>
+                                                </div>
+
+                                                <div className="bg-rose-950/30 p-5 rounded-2xl border border-rose-500/30">
+                                                    <h5 className="font-bold text-rose-300 text-xl md:text-2xl mb-3 flex items-center gap-2">5. Cara Merawat Pendengaran 🛡️</h5>
+                                                    <p className="text-base md:text-lg text-indigo-100 mb-3 font-medium">Agar sensor telinga kita tetap sehat, lakukan langkah perlindungan berikut:</p>
+                                                    <ul className="list-disc ml-6 space-y-1 text-base md:text-lg text-indigo-100 font-medium mb-4">
+                                                        <li><b>Atur Volume Aman:</b> Jangan memutar musik terlalu keras saat menggunakan <i>headphone</i> (sebaiknya di bawah 60%).</li>
+                                                        <li><b>Cara Membersihkan:</b> Bersihkan daun telinga luar saja dengan kain lembut. Jangan mengorek bagian dalam dengan <i>cotton bud</i>.</li>
+                                                        <li><b>Hindari Bising:</b> Gunakan pelindung telinga jika berada di dekat speaker konser yang sangat besar.</li>
+                                                    </ul>
+                                                </div>
+                                                
+                                                <div className="bg-slate-800/80 p-5 rounded-2xl border border-slate-600">
+                                                    <h5 className="font-bold text-emerald-300 text-xl md:text-2xl mb-3 flex items-center gap-2">✨ Ekolokasi & Teknologi</h5>
+                                                    <p className="text-base md:text-lg text-indigo-100 font-medium">Kemampuan mendeteksi letak benda dengan pantulan bunyi disebut <b>Ekolokasi</b> (Kelelawar & Lumba-lumba). Manusia menirunya untuk membuat <b>Sistem Sonar</b> (mengukur kedalaman laut).</p>
+                                                </div>
+                                              </div>
+                                          </div>
+                                          
+                                          <div className="w-full max-w-4xl mx-auto">
+                                              <LatihanSoalBlock />
+                                          </div>
+                                      </div>
+                                  )}
+                              </div>
+                          </div>
+                      )}
+
+                      <div className="mt-6 pt-5 border-t border-blue-500/30 text-center flex-shrink-0 relative z-10">
+                          <button onClick={onNext} className="bg-blue-900 hover:bg-blue-800 text-blue-100 font-bold transition-all border-b-4 border-blue-950 active:border-b-0 py-4 px-10 xl:py-5 xl:px-14 text-xl md:text-2xl xl:text-3xl rounded-full shadow-lg active:translate-y-1 inline-flex items-center gap-3 uppercase tracking-widest font-concert">
+                              Buka Denah Festival <Icons.Map className="w-6 h-6 xl:w-8 xl:h-8 text-cyan-400" />
+                          </button>
+                      </div>
+                  </div>
+                </div>
+            );
+        }
+
+        function MapScreen({ unlockedLevel, onLevelSelect, onFinish, isCompleted }) {
+            return (
+                <div className="flex flex-col flex-1 min-h-[400px] w-full max-w-6xl xl:max-w-7xl bg-slate-900 rounded-[2rem] md:rounded-[3rem] overflow-hidden shadow-[0_0_50px_rgba(59,130,246,0.3)] animate-fade-in relative border border-blue-500/50 mx-auto">
+                  <div className="absolute top-4 left-4 md:top-6 md:left-6 z-10 bg-slate-900/80 backdrop-blur-md px-5 py-4 md:px-6 md:py-5 rounded-2xl shadow-xl border border-blue-500/50">
+                    <h2 className="font-concert font-black text-cyan-300 text-lg md:text-2xl xl:text-3xl tracking-wide uppercase text-glow">Denah Festival</h2>
+                    <p className="text-sm md:text-base xl:text-lg text-indigo-200 font-medium mt-1">Pilih area panggung yang aktif lampunya!</p>
+                  </div>
+
+                  <div className="relative w-full h-full bg-slate-950 overflow-hidden group">
+                    <div className="absolute inset-0 w-full h-full object-cover object-center bg-cover bg-center opacity-40 transition-transform duration-[3s] group-hover:scale-105" style={{backgroundImage: `url(${MAIN_BG_IMAGE})`}}></div>
+                    <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-transparent to-slate-950 pointer-events-none"></div>
+                    
+                    {MAP_POSITIONS.map((pos) => {
+                      const isUnlocked = pos.level <= unlockedLevel;
+                      const isCurrent = pos.level === unlockedLevel;
+                      
+                      return (
+                        <button key={pos.level} onClick={() => isUnlocked ? onLevelSelect(pos.level) : null} disabled={!isUnlocked} style={{ top: pos.top, left: pos.left }}
+                          className={`absolute transform -translate-x-1/2 -translate-y-1/2 w-14 h-14 md:w-20 md:h-20 xl:w-24 xl:h-24 rounded-full flex items-center justify-center border-4 shadow-2xl transition-all duration-300 z-20 group/btn
+                            ${isCurrent ? 'scale-110 animate-pulse-wave ring-4 ring-cyan-400 border-blue-200 shadow-[0_0_30px_rgba(34,211,238,0.8)]' : 'hover:scale-110 border-blue-500/50'}
+                            ${isUnlocked ? 'bg-gradient-to-br from-blue-800 to-indigo-900 text-cyan-200 cursor-pointer' : 'bg-slate-800 border-slate-700 text-slate-600 cursor-not-allowed opacity-70'}
+                          `}
+                        >
+                          {isUnlocked ? (
+                            <span className="font-concert font-black text-2xl md:text-3xl xl:text-4xl text-glow">{pos.level}</span>
+                          ) : (
+                            <Icons.Lock className="w-6 h-6 md:w-8 md:h-8 opacity-50" />
+                          )}
+                          <div className="absolute -bottom-12 md:-bottom-16 left-1/2 transform -translate-x-1/2 bg-slate-900/95 px-4 py-2 xl:px-6 xl:py-3 rounded-xl text-xs md:text-sm xl:text-base font-bold whitespace-nowrap shadow-lg border border-blue-500/50 text-indigo-200 opacity-0 group-hover/btn:opacity-100 transition-opacity pointer-events-none z-30 uppercase font-concert">
+                            {LEVEL_DATA[pos.level].title}
+                          </div>
+                        </button>
+                      );
+                    })}
+
+                    {isCompleted && (
+                      <button onClick={onFinish} className="absolute bottom-8 right-8 md:bottom-12 md:right-12 bg-gradient-to-r from-cyan-500 to-blue-600 text-white font-bold py-4 px-8 md:py-5 md:px-10 xl:py-6 xl:px-12 rounded-full shadow-[0_0_30px_rgba(34,211,238,0.6)] flex items-center gap-4 animate-pulse z-30 transform hover:scale-105 transition text-base md:text-xl xl:text-2xl uppercase tracking-widest border border-cyan-200 font-concert">
+                        <Icons.Award className="w-8 h-8 md:w-10 md:h-10 xl:w-12 xl:h-12 text-white" /> <span>Naik Panggung!</span>
+                      </button>
+                    )}
+                  </div>
+                </div>
+            );
+        }
+
+        function Level1Backstage({ onComplete, onCorrect }) {
+            const data = LEVEL_DATA[1];
+            const shuffledItems = useMemo(() => shuffleArray(data.items), [data.items]);
+            const shuffledTargets = useMemo(() => shuffleArray(data.targets), [data.targets]);
+            
+            const [droppedItems, setDroppedItems] = useState({}); 
+            const [completed, setCompleted] = useState(false);
+            const [dragOverTarget, setDragOverTarget] = useState(null);
+            const [selectedItem, setSelectedItem] = useState(null);
+            const [feedbackMsg, setFeedbackMsg] = useState("");
+
+            const handleDragStart = (e, item) => { e.dataTransfer.setData("item", JSON.stringify(item)); };
+            const handleDragOver = (e, targetId) => { e.preventDefault(); setDragOverTarget(targetId); };
+            const handleDragLeave = (e) => { e.preventDefault(); setDragOverTarget(null); }
+            const handleDrop = (e, target) => {
+                e.preventDefault(); 
+                setDragOverTarget(null);
+                const itemData = e.dataTransfer.getData("item");
+                if (itemData) {
+                    const item = JSON.parse(itemData);
+                    setDroppedItems(prev => ({ ...prev, [item.id]: target.id }));
+                    setFeedbackMsg("");
+                }
+            };
+            const handleRemoveItem = (itemId) => {
+                setDroppedItems(prev => { const newItems = { ...prev }; delete newItems[itemId]; return newItems; });
+                setFeedbackMsg("");
+            };
+            const handleItemClick = (item) => { setSelectedItem(selectedItem?.id === item.id ? null : item); };
+            const handleTargetClick = (target) => { 
+                if (selectedItem) {
+                    setDroppedItems(prev => ({ ...prev, [selectedItem.id]: target.id }));
+                    setSelectedItem(null);
+                    setFeedbackMsg("");
+                } 
+            };
+
+            const handleCheckAnswer = () => {
+                let isAllCorrect = true;
+                data.items.forEach(item => { if (droppedItems[item.id] !== item.matchId) isAllCorrect = false; });
+
+                if (isAllCorrect) {
+                    playSfx('correct');
+                    for(let i=0; i<5; i++) { if (onCorrect) onCorrect(); }
+                    setCompleted(true);
+                } else {
+                    playSfx('incorrect');
+                    setFeedbackMsg("Kabel putus! Ada koneksi konsep sains yang keliru. Coba atur lagi!");
+                }
+            };
+
+            const allItemsDropped = Object.keys(droppedItems).length === data.items.length;
+
+            return (
+                <div className="flex flex-col h-full w-full max-w-7xl mx-auto flex-1 min-h-0">
+                  {!completed ? (
+                    <div className="flex flex-col flex-1 min-h-0 animate-fade-in bg-slate-900/80 p-4 rounded-3xl border border-blue-500/30 backdrop-blur-md">
+                        <div className="bg-blue-950/80 p-4 md:p-5 rounded-2xl border border-blue-500/50 shadow-sm mb-4 flex-shrink-0 flex flex-col md:flex-row gap-4 items-center">
+                            <div className="w-12 h-12 md:w-16 md:h-16 bg-blue-900/60 rounded-full flex items-center justify-center flex-shrink-0 border border-blue-400/50">
+                                <Icons.BookOpen className="w-6 h-6 md:w-8 md:h-8 text-cyan-300" />
+                            </div>
+                            <div>
+                                <h3 className="font-black text-cyan-300 mb-1 text-sm md:text-lg xl:text-xl uppercase tracking-widest font-concert">{data.stimulusTitle}</h3>
+                                <p className="text-blue-100 text-xs md:text-sm xl:text-base font-medium leading-relaxed whitespace-pre-wrap">{data.stimulusText}</p>
+                            </div>
+                        </div>
+
+                        <div className="bg-indigo-900/30 p-3 xl:p-4 rounded-xl border-l-4 border-indigo-500 text-center text-sm md:text-base xl:text-xl font-bold text-indigo-200 mb-4 shadow-sm flex-shrink-0">
+                            💡 {data.instruction}
+                        </div>
+                        
+                        <div className="flex flex-col md:flex-row gap-4 xl:gap-6 flex-1 min-h-0">
+                          <div className="flex-1 md:w-2/5 flex flex-col min-h-0 overflow-y-auto custom-scrollbar pr-2">
+                            <div className="flex flex-wrap justify-center gap-3 p-4 bg-slate-800/60 rounded-2xl border border-dashed border-blue-500/50 min-h-[150px] content-start">
+                              {shuffledItems.map(item => (
+                                !droppedItems[item.id] && (
+                                  <div key={item.id} draggable onDragStart={(e) => handleDragStart(e, item)} onClick={() => handleItemClick(item)}
+                                    className={`p-2 xl:p-3 rounded-xl border text-center flex items-center justify-center cursor-grab active:cursor-grabbing select-none transition-transform ${selectedItem?.id === item.id ? 'border-cyan-400 bg-cyan-900/60 scale-105 shadow-[0_0_10px_rgba(34,211,238,0.5)] text-white' : 'border-blue-400/50 bg-blue-900/40 hover:-translate-y-1 text-blue-100'}`}
+                                  >
+                                    <span className="font-bold text-sm md:text-base xl:text-xl pointer-events-none">{item.text}</span>
+                                  </div>
+                                )
+                              ))}
+                              {allItemsDropped && <p className="w-full text-center text-blue-400/50 font-bold text-sm xl:text-base mt-4">Semua koneksi telah tersambung.</p>}
+                            </div>
+                          </div>
+                          
+                          <div className="flex-1 md:w-3/5 flex flex-col min-h-0 overflow-y-auto custom-scrollbar pr-2">
+                            <div className="grid grid-cols-1 gap-2 xl:gap-3 pb-4">
+                              {shuffledTargets.map(target => (
+                                <div key={target.id} onDragOver={(e) => handleDragOver(e, target.id)} onDragLeave={handleDragLeave} onDrop={(e) => handleDrop(e, target)} onClick={() => handleTargetClick(target)}
+                                  className={`w-full p-3 xl:p-4 rounded-xl border border-dashed flex flex-col justify-start items-start transition-all min-h-[80px] cursor-pointer ${dragOverTarget === target.id ? 'bg-blue-900/40 border-cyan-400 scale-[1.01]' : 'bg-slate-800/50 border-slate-600 hover:border-blue-400'}`}
+                                >
+                                  <span className="font-medium text-blue-200 text-xs md:text-sm xl:text-base mb-2 border-b border-slate-700 pb-1 w-full">{target.label}</span>
+                                  <div className="flex gap-2 flex-wrap justify-start w-full">
+                                    {data.items.filter(i => droppedItems[i.id] === target.id).map(i => (
+                                      <div key={i.id} title={`Klik untuk memutuskan`} onClick={(e) => { e.stopPropagation(); handleRemoveItem(i.id); }} className="px-3 py-1.5 bg-indigo-700/80 text-white font-bold text-xs md:text-sm xl:text-base rounded-lg shadow-sm cursor-pointer hover:bg-rose-600 transition-colors flex items-center justify-center gap-2">
+                                          {i.text} <Icons.X className="w-3 h-3"/>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+
+                        {allItemsDropped && (
+                            <div className="mt-4 flex flex-col items-center flex-shrink-0 animate-fade-in">
+                                {feedbackMsg && <p className="text-rose-200 font-bold text-sm md:text-base xl:text-xl mb-3 bg-rose-950/60 px-5 py-3 rounded-xl border border-rose-500/50 text-center w-full">{feedbackMsg}</p>}
+                                <button onClick={handleCheckAnswer} className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold py-3 px-10 xl:py-4 xl:px-12 rounded-full shadow-[0_0_15px_rgba(59,130,246,0.5)] active:translate-y-1 transition-all text-lg xl:text-xl flex items-center justify-center gap-3 uppercase tracking-widest w-full md:w-auto font-concert">
+                                    <Icons.CheckCircle className="w-6 h-6 xl:w-8 xl:h-8" /> Nyalakan Alat
+                                </button>
+                            </div>
+                        )}
+                    </div>
+                  ) : (
+                    <div className="bg-slate-900/90 p-8 md:p-12 xl:p-16 rounded-[3rem] shadow-[0_0_40px_rgba(59,130,246,0.3)] text-center space-y-6 border border-indigo-500/40 max-w-4xl mx-auto animate-fade-in mt-8 flex-shrink-0 backdrop-blur-md">
+                      <div className="w-24 h-24 md:w-28 md:h-28 xl:w-36 xl:h-36 bg-indigo-900/50 rounded-full flex items-center justify-center mx-auto text-5xl md:text-6xl xl:text-8xl border border-indigo-400/50 neon-glow">🎸</div>
+                      <div>
+                          <h3 className="text-3xl md:text-4xl xl:text-5xl font-concert font-black text-cyan-300 uppercase tracking-widest mb-4 text-glow">Alat Musik Aktif!</h3>
+                          <p className="text-lg md:text-xl xl:text-2xl font-medium text-blue-200 leading-relaxed">Kamu berhasil menyinkronkan seluruh konsep dasar gelombang bunyi untuk alat musik!</p>
+                      </div>
+                      <button onClick={onComplete} className="bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-500 hover:to-blue-500 text-white font-bold w-full py-4 xl:py-5 text-xl rounded-full shadow-lg active:translate-y-1 transition-all uppercase tracking-widest mt-4 font-concert">Cek Area Lain 🚀</button>
+                    </div>
+                  )}
+                </div>
+            );
+        }
+
+        function Level2CheckSound({ onComplete, onCorrect }) {
+            const data = LEVEL_DATA[2];
+            const [answers, setAnswers] = useState({});
+            const [step, setStep] = useState('quiz'); 
+            const [currentQIndex, setCurrentQIndex] = useState(0);
+            const [scoreDetails, setScoreDetails] = useState(0);
+
+            const flatQuestions = React.useMemo(() => {
+                const arr = [];
+                data.parts.forEach(part => {
+                    part.questions.forEach(q => {
+                        const originalOptions = [...q.options];
+                        const shuffledOptions = shuffleArray(originalOptions);
+                        let newCorrect;
+                        if (q.type === 'single') newCorrect = shuffledOptions.indexOf(originalOptions[q.correct]);
+                        else newCorrect = q.correct.map(idx => shuffledOptions.indexOf(originalOptions[idx]));
+
+                        arr.push({ ...q, options: shuffledOptions, correct: newCorrect, stimulusTitle: q.stimulusTitle || '', stimulusText: q.stimulusText || '' });
+                    });
+                });
+                return arr;
+            }, [data]);
+
+            const currentQ = flatQuestions[currentQIndex];
+
+            const handleSingle = (qId, optIdx) => { setAnswers(prev => ({ ...prev, [qId]: optIdx })); };
+
+            const isCurrentAnswered = answers[currentQ.id] !== undefined;
+            const handleNext = () => { if (currentQIndex < flatQuestions.length - 1) setCurrentQIndex(prev => prev + 1); };
+            const handlePrev = () => { if (currentQIndex > 0) setCurrentQIndex(prev => prev - 1); };
+
+            const handleSubmit = () => {
+                let correctAns = 0;
+                flatQuestions.forEach(q => {
+                    const userAns = answers[q.id];
+                    if (userAns === q.correct) correctAns++; 
+                });
+                if (correctAns === flatQuestions.length) playSfx('correct'); else playSfx('incorrect');
+                setScoreDetails(correctAns);
+                setStep('feedback');
+            };
+
+            const handleRetry = () => { setAnswers({}); setCurrentQIndex(0); setScoreDetails(0); setStep('quiz'); };
+            const handleProceed = () => { for(let i = 0; i < scoreDetails; i++) { if (onCorrect) onCorrect(); } onComplete(); };
+
+            if (step === 'feedback') {
+                return (
+                    <div className="flex flex-col h-full w-full max-w-6xl mx-auto pb-4 animate-fade-in justify-center">
+                        <div className="bg-slate-900/90 p-8 md:p-12 xl:p-16 rounded-[3rem] shadow-[0_0_40px_rgba(59,130,246,0.3)] border border-blue-500/40 text-center mt-6 flex-shrink-0 backdrop-blur-md">
+                            <Icons.Activity className="w-20 h-20 xl:w-24 xl:h-24 text-cyan-400 mx-auto animate-float mb-4 drop-shadow-[0_0_15px_rgba(34,211,238,0.6)]" />
+                            <h3 className="text-3xl md:text-4xl xl:text-5xl font-concert font-black text-cyan-300 mb-4 uppercase tracking-widest text-glow">Hasil Check Sound</h3>
+                            <p className="text-lg md:text-xl xl:text-3xl font-medium text-indigo-200 mb-8">Sinyal terkalibrasi: <span className="text-cyan-400 text-3xl md:text-4xl xl:text-5xl mx-2 font-black">{scoreDetails}</span> dari {flatQuestions.length} akurat!</p>
+                            
+                            <div className="space-y-4 text-left max-h-[45vh] overflow-y-auto custom-scrollbar pr-4 mb-8 bg-slate-950/50 p-6 rounded-3xl border border-slate-700">
+                                {flatQuestions.map((q) => {
+                                    const userAns = answers[q.id];
+                                    let isCorrect = userAns === q.correct;
+
+                                    return (
+                                        <div key={q.id} className={`p-5 rounded-2xl border ${isCorrect ? 'border-indigo-500/50 bg-indigo-950/30' : 'border-rose-500/50 bg-rose-950/30'}`}>
+                                            <div className="flex gap-4 items-start mb-3">
+                                                {isCorrect ? <Icons.CheckCircle className="w-6 h-6 text-indigo-400 mt-1" /> : <Icons.X className="w-6 h-6 text-rose-400 mt-1" />}
+                                                <p className="font-medium text-blue-100 text-base md:text-lg">{q.text}</p>
+                                            </div>
+                                            <div className="ml-10 space-y-2 text-sm md:text-base">
+                                                {q.options.map((opt, oIdx) => {
+                                                    const isSelected = userAns === oIdx;
+                                                    const isCorrectOpt = q.correct === oIdx;
+                                                    if (!isSelected && !isCorrectOpt) return null; 
+                                                    
+                                                    let optClass = "text-slate-400/50"; let icon = "•";
+                                                    if (isCorrectOpt) { optClass = "text-cyan-300 font-bold"; icon = "✓"; } 
+                                                    else if (isSelected && !isCorrectOpt) { optClass = "text-rose-400 line-through"; icon = "✗"; }
+                                                    
+                                                    return (
+                                                        <div key={oIdx} className={`flex gap-3 ${optClass}`}>
+                                                            <span className="w-5 text-center">{icon}</span>
+                                                            <span className="flex-1">{opt} {isSelected && !isCorrectOpt ? '(Pilihanmu)' : ''}</span>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+
+                            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                                {scoreDetails < flatQuestions.length && (
+                                    <button onClick={handleRetry} className="bg-slate-800 hover:bg-slate-700 text-indigo-200 font-bold py-3 px-8 rounded-full border border-slate-600 transition-all text-base md:text-lg flex items-center justify-center gap-2 font-concert">
+                                        <Icons.RefreshCcw className="w-5 h-5" /> Uji Ulang Check Sound
+                                    </button>
+                                )}
+                                <button onClick={handleProceed} className="bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-500 hover:to-blue-500 text-white font-bold py-3 px-8 rounded-full shadow-[0_0_15px_rgba(59,130,246,0.4)] transition-all text-base md:text-lg flex items-center justify-center gap-2 font-concert">
+                                    Lanjut ke Area Lain 🚀
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                );
+            }
+
+            return (
+                <div className="flex flex-col h-full w-full max-w-7xl mx-auto flex-1 min-h-0">
+                   <div className="bg-blue-900/60 text-blue-200 p-3 xl:p-4 rounded-xl text-center font-bold text-sm md:text-base border border-blue-500/50 shadow-md flex items-center justify-center gap-3 mb-4 flex-shrink-0 backdrop-blur-sm">
+                     <Icons.Headphones className="w-5 h-5" /> Analisis uji suara di kiri, lalu pilih setelan yang tepat di kanan.
+                   </div>
+
+                   <div className="bg-slate-900/80 backdrop-blur-xl rounded-[2rem] shadow-2xl border border-blue-500/40 overflow-hidden flex flex-col md:flex-row flex-1 min-h-0">
+                       <div className="md:w-1/2 bg-blue-950/30 p-5 md:p-8 border-b md:border-b-0 md:border-r border-blue-500/30 flex flex-col min-h-0 overflow-y-auto custom-scrollbar">
+                           <h3 className="font-concert font-black text-cyan-300 mb-4 flex items-center gap-3 text-lg md:text-2xl flex-shrink-0 text-glow tracking-widest">
+                               {currentQ.stimulusTitle}
+                           </h3>
+                           <div className="text-indigo-100 text-sm md:text-lg whitespace-pre-wrap leading-relaxed font-medium bg-slate-900/60 p-5 rounded-2xl border border-blue-500/30 shadow-inner flex-none">
+                               {currentQ.stimulusText}
+                           </div>
+                       </div>
+                       
+                       <div className="md:w-1/2 p-5 md:p-8 flex flex-col min-h-0">
+                           <div className="text-xs font-bold text-indigo-300 uppercase tracking-widest mb-2 bg-indigo-900/50 inline-block px-3 py-1 rounded-lg w-max border border-indigo-500/30">Tes {currentQIndex + 1} / {flatQuestions.length}</div>
+                           <p className="font-bold text-blue-50 text-base md:text-xl leading-relaxed mb-5 flex-shrink-0 mt-2">{currentQ.text}</p>
+                           
+                           <div className="space-y-3 flex-grow overflow-y-auto custom-scrollbar pr-2">
+                               {currentQ.options.map((opt, oIdx) => {
+                                   const isSelected = answers[currentQ.id] === oIdx;
+                                   let btnClass = `w-full text-left px-4 py-3 rounded-xl border text-sm md:text-base font-medium transition-all flex items-start gap-3 ${isSelected ? 'border-indigo-500 bg-indigo-900/40 shadow-[0_0_15px_rgba(99,102,241,0.3)] text-indigo-100' : 'border-slate-700 bg-slate-800/50 hover:border-blue-400 hover:bg-blue-900/30 text-indigo-200'}`;
+                                   const shapeClass = 'rounded-full';
+
+                                   return (
+                                       <button key={oIdx} onClick={() => handleSingle(currentQ.id, oIdx)} className={btnClass}>
+                                           <div className={`mt-0.5 flex-shrink-0 w-5 h-5 border-2 ${shapeClass} flex items-center justify-center transition-colors ${isSelected ? 'border-cyan-400 bg-cyan-500' : 'border-slate-500 bg-slate-700'}`}>
+                                               {isSelected && <div className="w-2 h-2 bg-white rounded-full" />}
+                                           </div>
+                                           <span className="flex-1 leading-snug">{opt}</span>
+                                       </button>
+                                   );
+                               })}
+                           </div>
+
+                           <div className="flex justify-between items-center gap-3 mt-4 pt-4 border-t border-slate-700 flex-shrink-0">
+                               <button onClick={handlePrev} disabled={currentQIndex === 0} className={`py-2 px-4 rounded-xl font-bold flex items-center gap-2 transition-all text-sm uppercase ${currentQIndex === 0 ? 'bg-slate-800 text-slate-600 cursor-not-allowed border border-transparent' : 'bg-slate-800 text-blue-200 border border-slate-600 hover:bg-slate-700'}`}>
+                                   <Icons.ArrowRight className="w-4 h-4 rotate-180" /> <span className="hidden sm:inline">Kembali</span>
+                               </button>
+                               
+                               {currentQIndex < flatQuestions.length - 1 ? (
+                                   <button onClick={handleNext} disabled={!isCurrentAnswered} className={`py-2 px-6 rounded-xl font-bold flex items-center gap-2 transition-all text-sm uppercase ${!isCurrentAnswered ? 'bg-slate-800 text-slate-600 cursor-not-allowed border border-transparent' : 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg border border-blue-400/50'}`}>
+                                       <span className="hidden sm:inline">Lanjut</span> <Icons.ArrowRight className="w-4 h-4" />
+                                   </button>
+                               ) : (
+                                   <button onClick={handleSubmit} disabled={!isCurrentAnswered} className={`py-2 px-6 rounded-xl font-bold flex items-center gap-2 transition-all text-sm uppercase font-concert tracking-wider ${!isCurrentAnswered ? 'bg-slate-800 text-slate-600 cursor-not-allowed border border-transparent' : 'bg-gradient-to-r from-indigo-600 to-cyan-600 text-white shadow-[0_0_15px_rgba(59,130,246,0.5)] border border-cyan-400/50'}`}>
+                                       <Icons.CheckCircle className="w-4 h-4" /> Enkripsi Sinyal
+                                   </button>
+                               )}
+                           </div>
+                       </div>
+                   </div>
+                </div>
+            );
+        }
+
+        function Level3AreaPenonton({ onComplete, onCorrect }) {
+            const data = LEVEL_DATA[3];
+            const [answers, setAnswers] = useState({});
+            const [step, setStep] = useState('quiz'); 
+            const [currentQIndex, setCurrentQIndex] = useState(0);
+            const [scoreDetails, setScoreDetails] = useState(0);
+
+            const flatQuestions = React.useMemo(() => {
+                return data.questions.map(q => {
+                    const originalOptions = [...q.options];
+                    const shuffledOptions = shuffleArray(originalOptions);
+                    let newCorrect;
+                    if (q.type === 'single') newCorrect = shuffledOptions.indexOf(originalOptions[q.correct]);
+                    else newCorrect = q.correct.map(idx => shuffledOptions.indexOf(originalOptions[idx]));
+                    return { ...q, options: shuffledOptions, correct: newCorrect };
+                });
+            }, [data.questions]);
+
+            const currentQ = flatQuestions[currentQIndex];
+
+            const handleSingle = (qId, optIdx) => { setAnswers(prev => ({ ...prev, [qId]: optIdx })); };
+            const handleMultiple = (qId, optIdx) => {
+                setAnswers(prev => {
+                    const current = prev[qId] || [];
+                    if (current.includes(optIdx)) return { ...prev, [qId]: current.filter(x => x !== optIdx) };
+                    return { ...prev, [qId]: [...current, optIdx] };
+                });
+            };
+
+            const isCurrentAnswered = currentQ.type === 'single' ? answers[currentQ.id] !== undefined : (answers[currentQ.id] && answers[currentQ.id].length > 0);
+            const handleNext = () => { if (currentQIndex < flatQuestions.length - 1) setCurrentQIndex(prev => prev + 1); };
+            const handlePrev = () => { if (currentQIndex > 0) setCurrentQIndex(prev => prev - 1); };
+
+            const handleSubmit = () => {
+                let correctAns = 0;
+                flatQuestions.forEach(q => {
+                    const userAns = answers[q.id];
+                    if (q.type === 'single') {
+                        if (userAns === q.correct) correctAns++;
+                    } else {
+                        const arrAns = userAns || [];
+                        if (arrAns.length === q.correct.length && arrAns.every(val => q.correct.includes(val))) correctAns++;
+                    }
+                });
+                if (correctAns === flatQuestions.length) playSfx('correct'); else playSfx('incorrect');
+                setScoreDetails(correctAns);
+                setStep('feedback');
+            };
+
+            const handleRetry = () => { setAnswers({}); setCurrentQIndex(0); setScoreDetails(0); setStep('quiz'); };
+            const handleProceed = () => { for(let i = 0; i < scoreDetails; i++) { if (onCorrect) onCorrect(); } onComplete(); };
+
+            if (step === 'feedback') {
+                return (
+                    <div className="flex flex-col h-full w-full max-w-6xl mx-auto pb-4 animate-fade-in justify-center">
+                        <div className="bg-slate-900/90 p-8 md:p-12 xl:p-16 rounded-[3rem] shadow-[0_0_40px_rgba(59,130,246,0.3)] border border-blue-500/40 text-center mt-6 flex-shrink-0 backdrop-blur-md">
+                            <Icons.Activity className="w-20 h-20 xl:w-24 xl:h-24 text-indigo-400 mx-auto animate-float mb-4 drop-shadow-[0_0_15px_rgba(99,102,241,0.6)]" />
+                            <h3 className="text-3xl md:text-4xl xl:text-5xl font-concert font-black text-cyan-200 mb-4 uppercase tracking-widest text-glow">Hasil Analisis Area Penonton</h3>
+                            <p className="text-lg md:text-xl xl:text-3xl font-medium text-cyan-300 mb-8">Fakta akurat: <span className="text-indigo-400 text-3xl md:text-4xl mx-2 font-black">{scoreDetails}</span> / {flatQuestions.length}</p>
+                            
+                            <div className="space-y-4 text-left max-h-[45vh] overflow-y-auto custom-scrollbar pr-4 mb-8 bg-slate-950/50 p-6 rounded-3xl border border-slate-700">
+                                {flatQuestions.map((q) => {
+                                    const userAns = answers[q.id];
+                                    let isCorrect = false;
+                                    if (q.type === 'single') {
+                                        isCorrect = userAns === q.correct;
+                                    } else {
+                                        const arrAns = userAns || [];
+                                        isCorrect = arrAns.length === q.correct.length && arrAns.every(val => q.correct.includes(val));
+                                    }
+                                    
+                                    return (
+                                        <div key={q.id} className={`p-5 rounded-2xl border ${isCorrect ? 'border-blue-500/50 bg-blue-950/30' : 'border-rose-500/50 bg-rose-950/30'}`}>
+                                            <div className="flex gap-4 items-start mb-3">
+                                                {isCorrect ? <Icons.CheckCircle className="w-6 h-6 text-cyan-400 mt-1" /> : <Icons.X className="w-6 h-6 text-rose-400 mt-1" />}
+                                                <p className="font-medium text-blue-100 text-base md:text-lg">{q.text}</p>
+                                            </div>
+                                            <div className="ml-10 space-y-2 text-sm md:text-base">
+                                                {q.options.map((opt, oIdx) => {
+                                                    const isSelected = q.type === 'single' ? userAns === oIdx : (userAns || []).includes(oIdx);
+                                                    const isCorrectOpt = q.type === 'single' ? q.correct === oIdx : q.correct.includes(oIdx);
+                                                    if (!isSelected && !isCorrectOpt) return null; 
+                                                    
+                                                    let optClass = "text-slate-400/50"; let icon = "•";
+                                                    if (isCorrectOpt) { optClass = "text-indigo-300 font-bold"; icon = "✓"; } 
+                                                    else if (isSelected && !isCorrectOpt) { optClass = "text-rose-400 line-through"; icon = "✗"; }
+                                                    
+                                                    return (
+                                                        <div key={oIdx} className={`flex gap-3 ${optClass}`}>
+                                                            <span className="w-5 text-center">{icon}</span>
+                                                            <span className="flex-1">{opt} {isSelected && !isCorrectOpt ? '(Pilihanmu)' : ''}</span>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+
+                            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                                {scoreDetails < flatQuestions.length && (
+                                    <button onClick={handleRetry} className="bg-slate-800 hover:bg-slate-700 text-cyan-200 font-bold py-3 px-8 rounded-full border border-slate-600 transition-all text-base md:text-lg flex items-center justify-center gap-2 font-concert">
+                                        <Icons.RefreshCcw className="w-5 h-5" /> Uji Ulang
+                                    </button>
+                                )}
+                                <button onClick={handleProceed} className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold py-3 px-8 rounded-full shadow-[0_0_15px_rgba(59,130,246,0.4)] transition-all text-base md:text-lg flex items-center justify-center gap-2 font-concert">
+                                    Lanjut Penjelajahan 🚀
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                );
+            }
+
+            return (
+                <div className="flex flex-col h-full w-full max-w-7xl mx-auto flex-1 min-h-0">
+                   <div className="bg-indigo-900/60 text-indigo-200 p-3 xl:p-4 rounded-xl text-center font-bold text-sm md:text-base border border-indigo-500/50 shadow-md flex items-center justify-center gap-3 mb-4 flex-shrink-0 backdrop-blur-sm">
+                     <Icons.BookOpen className="w-5 h-5" /> Baca data pemantauan di kiri, lalu pilih jawaban (bisa lebih dari 1) di kanan.
+                   </div>
+
+                   <div className="bg-slate-900/80 backdrop-blur-xl rounded-[2rem] shadow-2xl border border-indigo-500/40 overflow-hidden flex flex-col md:flex-row flex-1 min-h-0 mt-4">
+                       <div className="md:w-1/2 bg-indigo-950/30 p-5 md:p-8 border-b md:border-b-0 md:border-r border-indigo-500/30 flex flex-col min-h-0 overflow-y-auto custom-scrollbar">
+                           <h3 className="font-concert font-black text-cyan-300 mb-4 flex items-center gap-3 text-lg md:text-2xl flex-shrink-0 text-glow">
+                               {currentQ.stimulusTitle}
+                           </h3>
+                           <div className="text-blue-100 text-base md:text-lg whitespace-pre-wrap leading-relaxed font-medium bg-slate-900/60 p-5 rounded-2xl border border-indigo-500/30 flex-none italic shadow-inner">
+                               {currentQ.stimulusText}
+                           </div>
+                       </div>
+                       
+                       <div className="md:w-1/2 p-5 md:p-8 flex flex-col min-h-0">
+                           <div className="text-xs font-bold text-cyan-300 uppercase tracking-widest mb-2 bg-cyan-900/50 inline-block px-3 py-1 rounded-lg w-max border border-cyan-500/30">Zona {currentQIndex + 1} / {flatQuestions.length}</div>
+                           <p className="font-bold text-blue-50 text-sm md:text-lg leading-relaxed mb-5 flex-shrink-0 mt-2">{currentQ.text}</p>
+                           
+                           <div className="space-y-3 flex-grow overflow-y-auto custom-scrollbar pr-2">
+                               {currentQ.options.map((opt, oIdx) => {
+                                   const isSelected = currentQ.type === 'single' ? answers[currentQ.id] === oIdx : (answers[currentQ.id] || []).includes(oIdx);
+                                   let btnClass = `w-full text-left px-4 py-3 rounded-xl border text-sm md:text-base font-medium transition-all flex items-start gap-3 ${isSelected ? 'border-indigo-500 bg-indigo-900/40 shadow-[0_0_15px_rgba(99,102,241,0.3)] text-indigo-100' : 'border-slate-700 bg-slate-800/50 hover:border-blue-400 hover:bg-blue-900/30 text-indigo-200'}`;
+                                   const shapeClass = currentQ.type === 'single' ? 'rounded-full' : 'rounded-md';
+                                   
+                                   return (
+                                       <button key={oIdx} onClick={() => currentQ.type === 'single' ? handleSingle(currentQ.id, oIdx) : handleMultiple(currentQ.id, oIdx)} className={btnClass}>
+                                           <div className={`mt-0.5 flex-shrink-0 w-5 h-5 border-2 ${shapeClass} flex items-center justify-center transition-colors ${isSelected ? 'border-cyan-400 bg-cyan-500' : 'border-slate-500 bg-slate-700'}`}>
+                                               {isSelected && (currentQ.type === 'single' ? <div className="w-2 h-2 bg-white rounded-full" /> : <Icons.CheckCircle className="w-4 h-4 text-white" />)}
+                                           </div>
+                                           <span className="flex-1 leading-snug">{opt}</span>
+                                       </button>
+                                   );
+                               })}
+                           </div>
+
+                           <div className="flex justify-between items-center gap-3 mt-4 pt-4 border-t border-slate-700 flex-shrink-0">
+                               <button onClick={handlePrev} disabled={currentQIndex === 0} className={`py-2 px-4 rounded-xl font-bold flex items-center gap-2 transition-all text-sm uppercase ${currentQIndex === 0 ? 'bg-slate-800 text-slate-600 cursor-not-allowed border border-transparent' : 'bg-slate-800 text-blue-200 border border-slate-600 hover:bg-slate-700'}`}>
+                                   <Icons.ArrowRight className="w-4 h-4 rotate-180" /> <span className="hidden sm:inline">Kembali</span>
+                               </button>
+                               
+                               {currentQIndex < flatQuestions.length - 1 ? (
+                                   <button onClick={handleNext} disabled={!isCurrentAnswered} className={`py-2 px-6 rounded-xl font-bold flex items-center gap-2 transition-all text-sm uppercase ${!isCurrentAnswered ? 'bg-slate-800 text-slate-600 cursor-not-allowed border border-transparent' : 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg border border-blue-400/50'}`}>
+                                       <span className="hidden sm:inline">Lanjut</span> <Icons.ArrowRight className="w-4 h-4" />
+                                   </button>
+                               ) : (
+                                   <button onClick={handleSubmit} disabled={!isCurrentAnswered} className={`py-2 px-6 rounded-xl font-bold flex items-center gap-2 transition-all text-sm uppercase font-concert tracking-wider ${!isCurrentAnswered ? 'bg-slate-800 text-slate-600 cursor-not-allowed border border-transparent' : 'bg-gradient-to-r from-indigo-600 to-cyan-600 text-white shadow-[0_0_15px_rgba(99,102,241,0.5)] border border-blue-400/50'}`}>
+                                       <Icons.CheckCircle className="w-4 h-4" /> Enkripsi
+                                   </button>
+                               )}
+                           </div>
+                       </div>
+                   </div>
+                </div>
+            );
+        }
+
+        function Level4RuangMixing({ onComplete, onCorrect }) {
+            const data = LEVEL_DATA[4];
+            const [answers, setAnswers] = useState({});
+            const [completed, setCompleted] = useState(false);
+            const [feedbackMsg, setFeedbackMsg] = useState("");
+            const [scoreLocal, setScoreLocal] = useState(0);
+
+            const handleEval = (cId, val) => setAnswers(p => ({...p, [cId]: {...p[cId], eval: parseInt(val)}}));
+            const handleCreate = (cId, val) => setAnswers(p => ({...p, [cId]: {...p[cId], create: parseInt(val)}}));
+
+            const handleCheckAnswer = () => {
+                let allFilled = true;
+                let correctCountLocal = 0;
+                
+                data.cases.forEach(c => {
+                    const a = answers[c.id];
+                    if (!a || a.eval === undefined || a.create === undefined || isNaN(a.eval) || isNaN(a.create)) allFilled = false;
+                    else if (a.eval === c.evalCorrect && a.create === c.createCorrect) correctCountLocal++;
+                });
+
+                if (!allFilled) { setFeedbackMsg("Lengkapi Diagnosis Kesalahan dan Resep Perbaikan pada semua laporan!"); return; }
+                if (correctCountLocal === data.cases.length) playSfx('correct'); else playSfx('incorrect');
+                if (onCorrect) for(let i=0; i<correctCountLocal; i++) onCorrect(); 
+                
+                setScoreLocal(correctCountLocal);
+                setCompleted(true);
+            };
+
+            return (
+                <div className="flex flex-col h-full w-full max-w-7xl mx-auto flex-1 min-h-0 pb-4">
+                    {!completed ? (
+                        <div className="bg-slate-900/90 backdrop-blur-xl rounded-[2rem] shadow-[0_0_40px_rgba(59,130,246,0.3)] border border-blue-500/40 flex flex-col flex-1 min-h-0 mt-5 overflow-hidden p-5 animate-fade-in">
+                            <div className="bg-blue-950/60 text-blue-100 p-4 rounded-xl border border-blue-500/40 shadow-sm mb-4 flex-shrink-0 flex items-center gap-4">
+                                <div className="text-3xl">🎛️</div>
+                                <span className="text-sm md:text-base font-medium">{data.stimulusText}</span>
+                            </div>
+                            
+                            <div className="flex-grow overflow-y-auto custom-scrollbar pr-2 space-y-6 pb-8">
+                                {data.cases.map((c, i) => (
+                                    <div key={c.id} className="bg-slate-800/50 p-5 rounded-2xl border border-slate-700">
+                                        <h4 className="font-bold text-indigo-200 text-sm md:text-base mb-4 bg-slate-900/80 p-4 rounded-xl border border-slate-600 italic shadow-inner">"{c.text}"</h4>
+                                        <div className="space-y-4">
+                                            <div className="flex flex-col">
+                                                <label className="text-xs md:text-sm font-bold text-cyan-300 mb-2 uppercase tracking-widest">Diagnosis Kesalahan Mitos:</label>
+                                                <select value={answers[c.id]?.eval !== undefined ? answers[c.id].eval : ""} onChange={e => handleEval(c.id, e.target.value)} className="w-full p-3 rounded-xl border border-cyan-500/30 bg-blue-950/20 outline-none text-blue-100 text-sm transition-all appearance-none cursor-pointer">
+                                                    <option value="" disabled>-- Pilih Diagnosis --</option>
+                                                    {c.evalOptions.map((opt, idx) => <option key={idx} value={idx}>{opt}</option>)}
+                                                </select>
+                                            </div>
+                                            <div className="flex flex-col">
+                                                <label className="text-xs md:text-sm font-bold text-indigo-300 mb-2 uppercase tracking-widest">Resep Fakta Sains:</label>
+                                                <select value={answers[c.id]?.create !== undefined ? answers[c.id].create : ""} onChange={e => handleCreate(c.id, e.target.value)} className="w-full p-3 rounded-xl border border-indigo-500/30 bg-indigo-950/20 outline-none text-blue-100 text-sm transition-all appearance-none cursor-pointer">
+                                                    <option value="" disabled>-- Pilih Perbaikan Fakta --</option>
+                                                    {c.createOptions.map((opt, idx) => <option key={idx} value={idx}>{opt}</option>)}
+                                                </select>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                            
+                            <div className="mt-4 pt-4 border-t border-slate-700 text-center flex-shrink-0 flex flex-col items-center">
+                                {feedbackMsg && <p className="text-rose-300 font-bold text-sm mb-3 bg-rose-950/50 p-3 rounded-xl border border-rose-500/40 w-full">{feedbackMsg}</p>}
+                                <button onClick={handleCheckAnswer} className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold py-3 px-8 rounded-full shadow-[0_0_15px_rgba(59,130,246,0.5)] transition-all text-sm md:text-base uppercase tracking-widest font-concert">
+                                    Verifikasi Audio
+                                </button>
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="bg-slate-900/90 backdrop-blur-xl p-10 rounded-[3rem] shadow-[0_0_40px_rgba(59,130,246,0.3)] text-center space-y-6 border border-blue-500/40 max-w-4xl mx-auto animate-fade-in mt-12">
+                            <div className="text-6xl mb-4">{scoreLocal === data.cases.length ? '✨' : '👍'}</div>
+                            <h3 className="text-2xl md:text-4xl font-concert font-black text-cyan-300 uppercase tracking-widest text-glow">Audio Jernih!</h3>
+                            <p className="text-base md:text-xl font-medium text-indigo-200">Kamu mengoreksi <span className="text-cyan-400 font-black text-2xl mx-1">{scoreLocal}</span> dari {data.cases.length} laporan mixing dengan tepat.</p>
+                            <button onClick={onComplete} className="bg-gradient-to-r from-indigo-600 to-blue-600 text-white font-bold py-3 px-8 rounded-full mt-4 font-concert tracking-widest">Menuju Panggung 🚀</button>
+                        </div>
+                    )}
+                </div>
+            );
+        }
+
+        function Level5Panggung({ onComplete, saveRef, saveData }) {
+            const data = LEVEL_DATA[5];
+            const [rating, setRating] = useState(0);
+            const [a1, setA1] = useState("");
+            const [a2, setA2] = useState("");
+            const [feedbackMsg, setFeedbackMsg] = useState("");
+
+            const handleFinish = () => {
+                if (rating === 0 || !a1.trim() || !a2.trim()) { setFeedbackMsg("Sistem menolak! Isi semua entri jurnal sebelum penampilan."); return; }
+                playSfx('correct');
+                saveData('final_project', { rating, pemahaman: a1, aksi: a2 });
+                saveRef(a2);
+                onComplete();
+            };
+
+            return (
+                <div className="flex flex-col h-full w-full max-w-4xl mx-auto flex-1 min-h-0 pb-4 animate-fade-in justify-center">
+                    <div className="bg-slate-900/90 backdrop-blur-xl p-6 md:p-10 rounded-[2rem] shadow-[0_0_50px_rgba(59,130,246,0.3)] border border-indigo-500/50 w-full flex flex-col flex-1 min-h-0 mt-5 overflow-hidden">
+                        
+                        <div className="text-center border-b border-indigo-500/30 pb-5 mb-5 flex-shrink-0">
+                            <h3 className="text-2xl md:text-4xl font-concert font-black text-cyan-400 uppercase tracking-widest mb-1 text-glow">{data.title}</h3>
+                            <p className="text-sm md:text-base font-bold text-cyan-200/70 uppercase tracking-widest">{data.subtitle}</p>
+                        </div>
+
+                        <div className="flex-grow overflow-y-auto custom-scrollbar pr-2 space-y-6 pb-4">
+                            <div className="bg-indigo-950/40 p-5 rounded-2xl border border-indigo-500/30">
+                                <label className="block text-sm md:text-base font-bold text-cyan-300 mb-3">{data.questions.q1}</label>
+                                <div className="flex gap-3 mb-4">
+                                    {[1, 2, 3, 4, 5].map(star => (
+                                        <Icons.Star key={star} onClick={() => { setRating(star); playSfx('click'); }} className={`w-10 h-10 cursor-pointer transition-transform hover:scale-110 ${rating >= star ? 'text-cyan-400 fill-cyan-400 drop-shadow-[0_0_10px_rgba(34,211,238,0.8)]' : 'text-slate-700 fill-slate-800'}`} />
+                                    ))}
+                                </div>
+                            </div>
+
+                            <div className="bg-blue-950/40 p-5 rounded-2xl border border-blue-500/30">
+                                <label className="block text-sm md:text-base font-bold text-indigo-300 mb-3">{data.questions.q2}</label>
+                                <textarea rows="3" value={a1} onChange={e => setA1(e.target.value)} placeholder="Tuliskan pemahamanmu (Misal: bunyi bergetar, butuh perantara...)" className="w-full p-3 rounded-xl border border-blue-500/40 bg-slate-900/60 text-blue-100 text-sm outline-none focus:border-cyan-400 resize-none"></textarea>
+                            </div>
+
+                            <div className="bg-cyan-950/40 p-5 rounded-2xl border border-cyan-500/30">
+                                <label className="block text-sm md:text-base font-bold text-cyan-300 mb-3">{data.questions.q3}</label>
+                                <textarea rows="2" value={a2} onChange={e => setA2(e.target.value)} placeholder="Aku berjanji akan menjaga pendengaranku dengan cara..." className="w-full p-3 rounded-xl border border-cyan-500/40 bg-slate-900/60 text-blue-100 text-sm outline-none focus:border-indigo-400 resize-none"></textarea>
+                            </div>
+                        </div>
+
+                        <div className="mt-4 pt-4 border-t border-slate-700 flex flex-col items-center flex-shrink-0">
+                            {feedbackMsg && <p className="text-rose-300 font-bold text-sm mb-3">{feedbackMsg}</p>}
+                            <button onClick={handleFinish} className="bg-gradient-to-r from-indigo-600 to-blue-600 text-white font-bold py-3 px-8 rounded-full shadow-[0_0_15px_rgba(59,130,246,0.6)] uppercase tracking-widest font-concert">Mulai Penampilan!</button>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        function EndScreen({ userData, correctCount, onRestart, playerName, playerSchool }) {
+            const [isSaving, setIsSaving] = useState(false);
+            const [saveStatus, setSaveStatus] = useState("idle"); 
+
+            const handleSaveToGoogleSheets = async () => {
+                if(!GOOGLE_SCRIPT_URL || GOOGLE_SCRIPT_URL.includes("MASUKKAN_URL")) return setSaveStatus("error");
+                setIsSaving(true);
+                const payload = { nama: playerName, sekolah: playerSchool, skor: correctCount, benar: correctCount, ref1: "-", ref2: "-", ref3: "-", ref4: "-", papua_masalah: userData.final_project?.pemahaman || "-", papua_solusi: "-", papua_kampanye: userData.final_project ? `Janji Bintang: ${userData.final_project.aksi} | Rating Suka: ${userData.final_project.rating}` : "-" };
+                try { await fetch(GOOGLE_SCRIPT_URL, { method: "POST", mode: "no-cors", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) }); setSaveStatus("success"); } catch (error) { setSaveStatus("error"); } finally { setIsSaving(false); }
+            };
+
+            return (
+                <div className="flex flex-col items-center justify-center gap-6 animate-fade-in w-full flex-1 min-h-0 overflow-y-auto pb-10 pt-5">
+                  <div className="text-center bg-slate-900/90 backdrop-blur-xl p-8 md:p-12 rounded-[3rem] shadow-[0_0_50px_rgba(59,130,246,0.4)] border border-blue-500/50 w-full max-w-3xl">
+                    <h2 className="text-4xl md:text-6xl font-concert font-black text-cyan-400 text-glow tracking-widest">KONSER SUKSES!</h2>
+                    <p className="text-xl md:text-3xl font-medium mt-4 text-blue-100">Bintang Utama {playerName}, <br/><span className="text-indigo-400 font-bold block mt-2 text-2xl md:text-4xl">Pakar Akustik Konser</span></p>
+                    <div className="text-lg md:text-xl font-bold text-indigo-300/70 mt-8 bg-slate-950/60 p-6 rounded-[2rem] border border-slate-700 shadow-inner">
+                        Total Frekuensi Tepat <br/><span className="text-6xl md:text-8xl text-cyan-400 inline-block mt-4 mb-2 drop-shadow-[0_0_15px_rgba(34,211,238,0.8)]">{correctCount}</span><span className="text-3xl text-slate-600">/20</span>
+                    </div>
+                  </div>
+
+                  <div className="w-full max-w-3xl bg-blue-950/60 p-8 rounded-[3rem] shadow-[0_0_30px_rgba(59,130,246,0.2)] border border-blue-500/40 text-center bg-slate-900/90 backdrop-blur-md">
+                      <h3 className="font-concert font-black text-2xl md:text-4xl text-indigo-300 uppercase tracking-widest border-b border-blue-500/30 pb-4 mb-4">Sertifikat Musisi</h3>
+                      <p className="text-cyan-300 font-bold text-lg md:text-xl">{playerName} - {playerSchool}</p>
+                      <div className="mt-4 bg-slate-900/80 p-4 rounded-xl border border-slate-700 text-blue-200 italic font-medium">
+                          Janji Aksi: "{userData.ref5 || '-'}"
+                      </div>
+                  </div>
+
+                  <div className="w-full max-w-3xl space-y-4">
+                    {saveStatus === 'idle' && <button onClick={handleSaveToGoogleSheets} disabled={isSaving} className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold w-full py-4 rounded-full text-lg shadow-[0_0_15px_rgba(59,130,246,0.4)] font-concert tracking-widest">{isSaving ? "Mengirim Laporan Konser..." : "Unggah Laporan ke Server Utama"}</button>}
+                    {saveStatus === 'success' && <div className="bg-emerald-950/60 text-emerald-300 p-4 rounded-full text-center font-bold border border-emerald-500/50">Data Berhasil Diunggah! ✅</div>}
+                    {saveStatus === 'error' && <div className="bg-rose-950/60 text-rose-300 p-4 rounded-full text-center font-bold border border-rose-500/50">Koneksi gagal. Pastikan sudah memasukkan URL Google Script. <button onClick={()=>setSaveStatus('idle')} className="underline">Coba lagi</button></div>}
+                    <button onClick={onRestart} className="bg-slate-800 text-blue-200 font-bold w-full py-4 rounded-full border border-slate-600 font-concert tracking-widest hover:bg-slate-700 transition-colors">Keluar dari Panggung</button>
+                  </div>
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<PetualanganKonser />);
+    </script>
+</body>
+</html>
